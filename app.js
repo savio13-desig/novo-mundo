@@ -576,7 +576,7 @@ async function joinVoice(c) {
   try {
     // sem ganho automático: ele sobe o chiado de fundo quando você fica quieto
     voice.raw = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false, channelCount: 1, sampleRate: 48000, voiceIsolation: true }, video: false,
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false, channelCount: 1, sampleRate: 48000 }, video: false,
     });
   } catch { return toast('Permita o acesso ao microfone para entrar na voz.'); }
   voice.stream = cleanMic(voice.raw);
@@ -645,31 +645,35 @@ window.addEventListener('pagehide', () => { voice.stream?.getTracks().forEach((t
 function cleanMic(raw) {
   const ctx = voice.ctx;
   const src = ctx.createMediaStreamSource(raw);
+  const pre = ctx.createGain(); pre.gain.value = 3; // pré-amplificador: microfones de notebook chegam muito baixos
   const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 110;
   const an = ctx.createAnalyser(); an.fftSize = 512;
   const delay = ctx.createDelay(0.5); delay.delayTime.value = 0.1; // dá tempo do portão abrir antes da fala chegar
   const gate = ctx.createGain(); gate.gain.value = 0;
   // microfone sem ganho automático vem baixo: sobe o volume e o compressor segura os picos (gritos não estouram)
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -24; comp.knee.value = 6; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.25;
-  const makeup = ctx.createGain(); makeup.gain.value = 1.8;
+  const makeup = ctx.createGain(); makeup.gain.value = 1;
   const dest = ctx.createMediaStreamDestination();
-  src.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(comp); comp.connect(makeup); makeup.connect(dest);
+  src.connect(pre); pre.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(comp); comp.connect(makeup); makeup.connect(dest);
   // o limite do portão acompanha o ruído de fundo medido; a "sensibilidade" (1-10) define quão acima do ruído a fala precisa estar
-  const buf = new Uint8Array(an.fftSize), hist = []; let hold = 0, floor = 0.004, tick = 0;
+  const buf = new Uint8Array(an.fftSize), hist = []; let hold = 0, floor = 0.05, tick = 0;
   voice.gateTimer = setInterval(() => {
     an.getByteTimeDomainData(buf);
     let sum = 0; for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
     const rms = Math.sqrt(sum / buf.length);
-    const thr = Math.max(0.0025, floor * (5.4 - voice.sens * 0.4)), loud = rms > thr;
-    if (!loud && hold === 0) floor = Math.min(0.03, Math.max(0.0008, rms < floor ? floor * 0.95 + rms * 0.05 : floor * 0.995 + rms * 0.005));
+    // piso de ruído: desce rápido nas pausas e sobe devagar (sempre, com o portão aberto ou fechado); 1ª meia segundo só calibra
+    floor = rms < floor ? floor * 0.9 + rms * 0.1 : Math.min(0.05, floor * 1.001 + 1e-6);
+    floor = Math.max(0.0008, floor);
+    const calibrating = tick < 25;
+    const thr = Math.max(0.0025, floor * (5.4 - voice.sens * 0.4)), loud = !calibrating && rms > thr;
     // abre quando 3 das últimas 5 janelas (~100 ms) estão acima do limite: fala (sílabas com pausas) passa, clique isolado de tecla não
     hist.push(loud ? 1 : 0); if (hist.length > 5) hist.shift();
     if (hist.reduce((a, b) => a + b, 0) >= 3) hold = 20; else if (hold > 0) hold--;
     const open = voice.gateOff || hold > 0;
-    gate.gain.setTargetAtTime(open ? 3 : 0, ctx.currentTime, open ? 0.015 : 0.06);
+    gate.gain.setTargetAtTime(open ? 1.8 : 0, ctx.currentTime, open ? 0.015 : 0.06);
     if (++tick % 3 === 0) paintLevel(rms, thr, open);
   }, 20);
-  voice.gateNodes = [src, hp, an, delay, gate, comp, makeup];
+  voice.gateNodes = [src, hp, an, delay, gate, comp, makeup, pre];
   return dest.stream;
 }
 
