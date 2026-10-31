@@ -551,6 +551,7 @@ function watchVoiceChannels() {
       if (ready) for (const k of now) if (!prevKeys.has(k) && k !== state.user.id) announce(k, `entrou na sala 🔊 ${c.name}`, '🎙');
       prevKeys = now;
       if (state.server) renderChannels();
+      if (voice.id === c.id) updateVoiceStatus();
     })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => { if (voice.id === c.id) onPeerJoin(key, newPresences?.[0]?.sid); })
       .on('presence', { event: 'leave' }, ({ key }) => {
@@ -581,12 +582,12 @@ async function joinVoice(c) {
   voice.id = c.id; voice.name = c.name; voice.muted = false; voice.sid = crypto.randomUUID(); voice.peerSid.clear();
   watchMeter(state.user.id, voice.stream);
   voice.timer = setInterval(tickMeters, 120);
-  $('voice-bar').hidden = false; $('voice-name').textContent = c.name; setMuteUI();
+  $('voice-bar').hidden = false; $('voice-name').textContent = c.name; setMuteUI(); setGateUI();
   const ch = voice.obs.get(c.id)?.ch; if (!ch) { await leaveVoice(); return toast('Canal de voz indisponível.'); }
   setShareUI();
   await updatePresence();
   for (const u of voiceUsers(c.id)) onPeerJoin(u.uid, u.sid);
-  renderChannels();
+  renderChannels(); updateVoiceStatus();
 }
 
 async function leaveVoice() {
@@ -618,6 +619,22 @@ $('mute-btn').onclick = async () => {
   await updatePresence();
 };
 $('leave-voice').onclick = leaveVoice;
+
+function setGateUI() {
+  const b = $('gate-btn'), on = !voice.gateOff;
+  b.setAttribute('aria-pressed', String(on)); b.style.opacity = on ? '1' : '.5';
+  b.title = on ? 'Filtro de ruído: ligado (clique para desligar se ninguém te ouvir)' : 'Filtro de ruído: desligado (clique para ligar)';
+  b.setAttribute('aria-label', b.title);
+}
+$('gate-btn').onclick = () => { voice.gateOff = !voice.gateOff; setGateUI(); toast(voice.gateOff ? 'Filtro de ruído desligado' : 'Filtro de ruído ligado'); };
+
+// mostra na barra de voz quantas pessoas estão realmente conectadas
+function updateVoiceStatus() {
+  if (!voice.id) return;
+  const others = voiceUsers(voice.id).filter((u) => u.uid !== state.user.id).length;
+  const ok = [...voice.peers.values()].filter((p) => p.connectionState === 'connected').length;
+  $('voice-name').textContent = others ? `${voice.name} · ${ok}/${others} conectados` : `${voice.name} · só você`;
+}
 window.addEventListener('pagehide', () => { voice.stream?.getTracks().forEach((t) => t.stop()); voice.raw?.getTracks().forEach((t) => t.stop()); });
 
 // Limpa o microfone: corta graves de teclado/mesa e fecha o "portão" quando você não está falando.
@@ -629,19 +646,23 @@ function cleanMic(raw) {
   const an = ctx.createAnalyser(); an.fftSize = 512;
   const delay = ctx.createDelay(0.5); delay.delayTime.value = 0.1; // dá tempo do portão abrir antes da fala chegar
   const gate = ctx.createGain(); gate.gain.value = 0;
+  // compressor segura os picos para o ganho extra (o microfone sem ganho automático costuma vir baixo)
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
   const dest = ctx.createMediaStreamDestination();
-  src.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(dest);
-  const buf = new Uint8Array(an.fftSize); let above = 0, hold = 0;
+  src.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(comp); comp.connect(dest);
+  // o limite do portão se adapta ao ruído de fundo medido, então funciona com microfone baixo ou alto
+  const buf = new Uint8Array(an.fftSize); let above = 0, hold = 0, floor = 0.004;
   voice.gateTimer = setInterval(() => {
     an.getByteTimeDomainData(buf);
     let sum = 0; for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
-    const loud = Math.sqrt(sum / buf.length) > 0.022;
+    const rms = Math.sqrt(sum / buf.length), loud = rms > Math.max(0.006, floor * 3.5);
+    if (!loud && hold === 0) floor = Math.min(0.03, Math.max(0.0008, floor * 0.99 + rms * 0.01));
     above = loud ? above + 1 : 0;
     if (above >= 3) hold = 14; else if (hold > 0) hold--;
-    const open = hold > 0;
-    gate.gain.setTargetAtTime(open ? 1 : 0, ctx.currentTime, open ? 0.015 : 0.06);
+    const open = voice.gateOff || hold > 0;
+    gate.gain.setTargetAtTime(open ? 1.8 : 0, ctx.currentTime, open ? 0.015 : 0.06);
   }, 20);
-  voice.gateNodes = [src, hp, an, delay, gate];
+  voice.gateNodes = [src, hp, an, delay, gate, comp];
   return dest.stream;
 }
 
@@ -675,7 +696,7 @@ function addLocalTracks(pc, st) {
 function makePeer(uid, addTracks) {
   closePeer(uid);
   const pc = new RTCPeerConnection(ICE);
-  const st = { making: false, ignore: false, polite: state.user.id > uid, screenSender: null, pending: [], first: !!addTracks, timers: [] };
+  const st = { making: false, ignore: false, polite: state.user.id > uid, screenSender: null, pending: [], first: !!addTracks, timers: [], born: Date.now() };
   pc.onicecandidate = (e) => { if (e.candidate) send(uid, 'ice', e.candidate.toJSON()); };
   pc.ontrack = (e) => attachRemote(uid, e);
   pc.onnegotiationneeded = async () => {
@@ -687,7 +708,7 @@ function makePeer(uid, addTracks) {
   };
   pc.onconnectionstatechange = () => {
     st.timers.forEach(clearTimeout); st.timers = [];
-    const s = pc.connectionState;
+    const s = pc.connectionState; updateVoiceStatus();
     if (s === 'connected') tuneSenders(pc);
     else if (s === 'disconnected') st.timers.push(setTimeout(() => recoverPeer(uid, pc), 2000));
     else if (s === 'failed') recoverPeer(uid, pc);
@@ -715,10 +736,14 @@ function closePeer(uid) {
   document.getElementById('a-' + uid)?.remove();
   const m = voice.meters.get(uid); if (m) { m.src.disconnect(); voice.meters.delete(uid); }
   if (voice.screens.delete(uid)) renderScreens();
+  updateVoiceStatus();
 }
 
 function onPeerJoin(uid, sid) {
   if (!voice.id || uid === state.user.id) return;
+  // se a oferta do outro lado já chegou e criou a conexão, não derruba: só registra a sessão dele
+  const cur = voice.st.get(uid);
+  if (cur && !voice.peerSid.has(uid) && Date.now() - cur.born < 8000) { voice.peerSid.set(uid, sid); return; }
   if (voice.peerSid.get(uid) === sid && voice.peers.has(uid)) return; // só atualização (mudo/tela), mesma sessão
   voice.peerSid.set(uid, sid);
   closePeer(uid); maybeOffer(uid);
