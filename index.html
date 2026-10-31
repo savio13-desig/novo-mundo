@@ -46,12 +46,14 @@
     <div class="channel-list" id="channel-list"></div>
     <div class="voice-bar" id="voice-bar" hidden>
       <div class="voice-info"><strong class="ok">Voz conectada</strong><span id="voice-name" class="muted"></span></div>
+      <button class="icon-btn" id="share-btn" title="Compartilhar tela" aria-label="Compartilhar tela" aria-pressed="false">🖥</button>
       <button class="icon-btn" id="mute-btn" title="Silenciar microfone" aria-label="Silenciar microfone" aria-pressed="false">🎤</button>
       <button class="icon-btn" id="leave-voice" title="Sair da voz" aria-label="Sair da voz">📞</button>
     </div>
     <footer class="me">
       <span class="avatar" id="me-avatar"></span>
       <span class="me-name" id="me-name"></span>
+      <button class="icon-btn" id="notif-btn" title="Ativar notificações" aria-label="Ativar notificações" hidden>🔔</button>
       <button class="icon-btn" id="logout" title="Sair" aria-label="Sair">⎋</button>
     </footer>
   </aside>
@@ -61,6 +63,7 @@
       <button class="icon-btn only-mobile" id="menu-btn" aria-label="Menu">☰</button>
       <strong id="channel-title"># geral</strong>
     </header>
+    <div class="screens" id="screens" hidden></div>
     <div class="messages" id="messages" role="log" aria-live="polite"></div>
     <form class="composer" id="composer">
       <label class="icon-btn attach" title="Enviar imagem" aria-label="Enviar imagem">＋
