@@ -584,6 +584,19 @@ function updatePresence() {
   return voice.obs.get(voice.id)?.ch.track({ sid: voice.sid, name: state.profile?.username || 'Usuário', muted: voice.muted, sharing: !!voice.screen });
 }
 
+// áudio com mais taxa (voz mais limpa) e prioridade alta; vídeo da tela limitado para não competir com a voz
+async function tuneSenders(pc) {
+  for (const s of pc.getSenders()) {
+    if (!s.track) continue;
+    try {
+      const p = s.getParameters(); if (!p.encodings?.length) p.encodings = [{}];
+      if (s.track.kind === 'audio') Object.assign(p.encodings[0], { maxBitrate: 96000, priority: 'high', networkPriority: 'high' });
+      else Object.assign(p.encodings[0], { maxBitrate: 1500000, priority: 'low', networkPriority: 'low' });
+      await s.setParameters(p);
+    } catch { /* navegador sem suporte: segue com o padrão */ }
+  }
+}
+
 function addLocalTracks(pc, st) {
   voice.stream.getTracks().forEach((t) => pc.addTrack(t, voice.stream));
   if (voice.screen) st.screenSender = pc.addTrack(voice.screen.getVideoTracks()[0], voice.screen);
@@ -600,7 +613,10 @@ function makePeer(uid, addTracks) {
     try { st.making = true; await pc.setLocalDescription(); send(uid, 'desc', pc.localDescription.toJSON()); }
     catch (err) { console.warn('voz:', err); } finally { st.making = false; }
   };
-  pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') toast('Falha de conexão de voz com um amigo.'); };
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'connected') tuneSenders(pc);
+    if (pc.connectionState === 'failed') toast('Falha de conexão de voz com um amigo.');
+  };
   voice.peers.set(uid, pc); voice.st.set(uid, st);
   if (addTracks) addLocalTracks(pc, st);
   return pc;
@@ -695,6 +711,7 @@ async function startShare() {
   if ('contentHint' in track) track.contentHint = 'detail';
   track.onended = stopShare;
   for (const [uid, pc] of voice.peers) voice.st.get(uid).screenSender = pc.addTrack(track, voice.screen);
+  setTimeout(() => voice.peers.forEach(tuneSenders), 1500);
   setShareUI(); await updatePresence(); renderChannels();
 }
 
