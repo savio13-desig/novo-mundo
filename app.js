@@ -98,7 +98,7 @@ async function onSignedIn(user) {
   const av = $('me-avatar'); av.textContent = initial(name); av.style.background = colorFor(name);
   await handleInviteFromUrl();
   await loadServers();
-  startRealtime(); loadDmUnread(); setupNotifButton();
+  startRealtime(); loadDmUnread(); setupNotifButton(); setupSoundButton();
 }
 
 /* ---------- convite ---------- */
@@ -354,6 +354,34 @@ function notify(title, body, tag) {
     n.onclick = () => { window.focus(); n.close(); };
   } catch { /* alguns celulares exigem service worker */ }
 }
+/* ---------- avisos de "fulano conectou" ---------- */
+const soundOn = () => { try { return localStorage.getItem('nm_sound') !== 'off'; } catch { return true; } };
+let chimeCtx = null;
+function chime() {
+  if (!soundOn()) return;
+  try {
+    chimeCtx = chimeCtx || new (window.AudioContext || window.webkitAudioContext)(); chimeCtx.resume();
+    const t = chimeCtx.currentTime;
+    [660, 880].forEach((f, i) => {
+      const o = chimeCtx.createOscillator(), g = chimeCtx.createGain(), at = t + i * 0.12;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.12, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.25);
+      o.connect(g).connect(chimeCtx.destination); o.start(at); o.stop(at + 0.3);
+    });
+  } catch { /* som bloqueado até a primeira interação */ }
+}
+async function announce(uid, text, icon) {
+  const name = await nameOf(uid);
+  toast(`${icon} ${name} ${text}`); chime();
+  if (document.hidden) notify('Novo Mundo', `${name} ${text}`, 'on' + uid);
+}
+function setupSoundButton() {
+  const b = $('sound-btn');
+  const paint = () => { const on = soundOn(); b.textContent = on ? '🔊' : '🔕'; b.title = on ? 'Som dos avisos: ligado' : 'Som dos avisos: desligado'; b.setAttribute('aria-label', b.title); };
+  b.onclick = () => { try { localStorage.setItem('nm_sound', soundOn() ? 'off' : 'on'); } catch { /* sem storage */ } paint(); if (soundOn()) chime(); };
+  paint();
+}
+
 function setupNotifButton() {
   const b = $('notif-btn');
   if (!('Notification' in window) || Notification.permission !== 'default') { b.hidden = true; return; }
@@ -371,7 +399,9 @@ function setupPresence() {
     if (state.presence.has(s.id)) continue;
     const ch = sb.channel('online-' + s.id, { config: { private: true, presence: { key: state.user.id } } });
     ch.on('presence', { event: 'sync' }, () => {
-      state.online.set(s.id, new Set(Object.keys(ch.presenceState())));
+      const now = new Set(Object.keys(ch.presenceState())), prev = state.online.get(s.id);
+      state.online.set(s.id, now);
+      if (prev) for (const k of now) if (!prev.has(k) && k !== state.user.id) announce(k, `entrou no servidor ${s.name}`, '🟢');
       if (state.server) { renderChannels(); renderMembers(); }
     }).subscribe(async (st) => { if (st === 'SUBSCRIBED') await ch.track({ at: Date.now() }); });
     state.presence.set(s.id, ch);
@@ -514,15 +544,23 @@ function watchVoiceChannels() {
   }
   for (const c of state.channels.filter((x) => x.type === 'voice')) {
     if (voice.obs.has(c.id)) continue;
-    const ch = sb.channel('voice-' + c.id, { config: { private: true, presence: { key: state.user.id }, broadcast: { self: false } } });
-    ch.on('presence', { event: 'sync' }, () => { if (state.server) renderChannels(); })
+    const ch = sb.channel('voice-' + c.id, { config: { private: true, presence: { key: state.user.id, enabled: true }, broadcast: { self: false } } });
+    let prevKeys = new Set(), ready = false; // só avisa depois de ler quem já estava na sala
+    ch.on('presence', { event: 'sync' }, () => {
+      const now = new Set(Object.keys(ch.presenceState()));
+      if (ready) for (const k of now) if (!prevKeys.has(k) && k !== state.user.id) announce(k, `entrou na sala 🔊 ${c.name}`, '🎙');
+      prevKeys = now;
+      if (state.server) renderChannels();
+    })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => { if (voice.id === c.id) onPeerJoin(key, newPresences?.[0]?.sid); })
       .on('presence', { event: 'leave' }, ({ key }) => {
         // atualizar o mudo/tela também gera "leave"+"join" da mesma pessoa: só fecha se ela realmente saiu
         if (voice.id === c.id && key !== state.user.id && !ch.presenceState()[key]) { voice.peerSid.delete(key); closePeer(key); }
       })
       .on('broadcast', { event: 'signal' }, ({ payload }) => { if (voice.id === c.id) onSignal(payload); })
-      .subscribe();
+      .subscribe((st) => {
+        if (st === 'SUBSCRIBED') setTimeout(() => { prevKeys = new Set(Object.keys(ch.presenceState())); ready = true; }, 1500);
+      });
     voice.obs.set(c.id, { ch });
   }
 }
