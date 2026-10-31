@@ -1,0 +1,10 @@
+{
+  "name": "Novo Mundo",
+  "short_name": "Novo Mundo",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1e1f26",
+  "theme_color": "#1e1f26",
+  "lang": "pt-BR",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

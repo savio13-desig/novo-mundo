@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f26">
+<title>Novo Mundo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<main id="auth" class="auth" hidden>
+  <form id="auth-form" class="auth-card" autocomplete="on">
+    <img src="icon.svg" alt="" class="auth-logo" width="64" height="64">
+    <h1>Novo Mundo</h1>
+    <p class="muted" id="auth-sub">Entre para falar com a galera.</p>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tab-login" aria-selected="true">Entrar</button>
+      <button type="button" role="tab" id="tab-signup" aria-selected="false">Criar conta</button>
+    </div>
+    <label id="username-wrap" hidden>Apelido
+      <input id="username" type="text" maxlength="24" autocomplete="nickname">
+    </label>
+    <label>E-mail
+      <input id="email" type="email" required autocomplete="email">
+    </label>
+    <label>Senha
+      <input id="password" type="password" required minlength="6" autocomplete="current-password">
+    </label>
+    <button class="btn primary" id="auth-submit" type="submit">Entrar</button>
+    <p class="error" id="auth-error" role="alert"></p>
+  </form>
+</main>
+
+<!-- APP -->
+<div id="app" class="app" hidden>
+  <nav class="servers" id="servers" aria-label="Servidores"></nav>
+
+  <aside class="channels" id="channels-pane">
+    <header class="pane-head"><strong id="server-name">Novo Mundo</strong>
+      <button class="icon-btn" id="invite-btn" title="Copiar link de convite" aria-label="Copiar link de convite">🔗</button>
+    </header>
+    <div class="channel-list" id="channel-list"></div>
+    <div class="voice-bar" id="voice-bar" hidden>
+      <div class="voice-info"><strong class="ok">Voz conectada</strong><span id="voice-name" class="muted"></span></div>
+      <button class="icon-btn" id="mute-btn" title="Silenciar microfone" aria-label="Silenciar microfone" aria-pressed="false">🎤</button>
+      <button class="icon-btn" id="leave-voice" title="Sair da voz" aria-label="Sair da voz">📞</button>
+    </div>
+    <footer class="me">
+      <span class="avatar" id="me-avatar"></span>
+      <span class="me-name" id="me-name"></span>
+      <button class="icon-btn" id="logout" title="Sair" aria-label="Sair">⎋</button>
+    </footer>
+  </aside>
+
+  <section class="chat">
+    <header class="pane-head">
+      <button class="icon-btn only-mobile" id="menu-btn" aria-label="Menu">☰</button>
+      <strong id="channel-title"># geral</strong>
+    </header>
+    <div class="messages" id="messages" role="log" aria-live="polite"></div>
+    <form class="composer" id="composer">
+      <label class="icon-btn attach" title="Enviar imagem" aria-label="Enviar imagem">＋
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+      </label>
+      <input id="text" type="text" placeholder="Enviar mensagem" autocomplete="off" maxlength="4000">
+      <button class="btn primary" type="submit">Enviar</button>
+    </form>
+    <p class="preview" id="preview" hidden></p>
+  </section>
+
+  <aside class="members" id="members" aria-label="Membros"></aside>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="dlg-form">
+    <h2 id="dlg-title"></h2>
+    <input id="dlg-input" type="text" maxlength="60" required>
+    <menu>
+      <button class="btn" type="button" id="dlg-cancel">Cancelar</button>
+      <button class="btn primary" value="ok">Confirmar</button>
+    </menu>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="audio-sink" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
