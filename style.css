@@ -81,7 +81,9 @@ dialog menu{display:flex;justify-content:flex-end;gap:8px;padding:0;margin:14px 
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--bg3);border:1px solid var(--line);padding:.6rem 1rem;border-radius:10px;z-index:10}
 
 .voice-bar{display:flex;align-items:center;gap:4px;padding:8px 10px;background:var(--bg0);border-bottom:1px solid var(--line);flex:none}
-.voice-info{flex:1;min-width:0;display:flex;flex-direction:column;font-size:.8rem}
+.voice-bar{flex-wrap:wrap}
+.voice-info{flex:1 1 100%;min-width:0;display:flex;flex-direction:column;font-size:.8rem}
+.voice-bar .icon-btn{flex:1;justify-content:center}
 .voice-info .ok{color:#4ade80}
 .voice-info span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #mute-btn[aria-pressed="true"]{color:var(--danger)}
@@ -90,6 +92,11 @@ dialog menu{display:flex;justify-content:flex-end;gap:8px;padding:0;margin:14px 
 .vuser .avatar{width:22px;height:22px;font-size:.7rem;box-shadow:0 0 0 2px transparent;transition:box-shadow .1s}
 .vuser.speaking .avatar{box-shadow:0 0 0 2px #4ade80}
 .vuser.speaking{color:var(--text)}
+.mic-tune{padding:6px 12px 10px;background:var(--bg0);display:flex;flex-direction:column;gap:4px;font-size:.75rem;color:var(--muted);flex:none}
+.mic-tune input[type=range]{width:100%;accent-color:var(--accent)}
+.lvl{position:relative;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden}
+.lvl i{position:absolute;left:0;top:0;bottom:0;width:0;background:#6b6d80;transition:width .06s linear}
+.lvl b{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent2)}
 #share-btn[aria-pressed="true"]{color:#4ade80}
 .badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:10px;font-size:.7rem;font-weight:700;padding:0 6px;min-width:18px;text-align:center}
 .dot{width:9px;height:9px;border-radius:50%;background:#6b6d80;flex:none;display:inline-block}

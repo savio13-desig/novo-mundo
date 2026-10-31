@@ -51,6 +51,11 @@
       <button class="icon-btn" id="mute-btn" title="Silenciar microfone" aria-label="Silenciar microfone" aria-pressed="false">🎤</button>
       <button class="icon-btn" id="leave-voice" title="Sair da voz" aria-label="Sair da voz">📞</button>
     </div>
+    <div class="mic-tune" id="mic-tune" hidden>
+      <label for="gate-sens">Sensibilidade do microfone</label>
+      <input type="range" id="gate-sens" min="1" max="10" step="1" value="8">
+      <div class="lvl" title="Barra: o que o microfone capta. Traço: nível para o filtro abrir. Verde: transmitindo."><i id="lvl-bar"></i><b id="lvl-thr"></b></div>
+    </div>
     <footer class="me">
       <span class="avatar" id="me-avatar"></span>
       <span class="me-name" id="me-name"></span>

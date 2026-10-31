@@ -520,6 +520,7 @@ const voice = {
   id: null, name: '', sid: null, stream: null, screen: null, muted: false,
   peers: new Map(), st: new Map(), peerSid: new Map(), screens: new Map(),
   obs: new Map(), ctx: null, meters: new Map(), timer: null,
+  gateOff: false, sens: (() => { try { return Math.min(10, Math.max(1, +localStorage.getItem('nm_sens') || 8)); } catch { return 8; } })(),
 };
 
 function voiceUsers(cid) {
@@ -582,7 +583,7 @@ async function joinVoice(c) {
   voice.id = c.id; voice.name = c.name; voice.muted = false; voice.sid = crypto.randomUUID(); voice.peerSid.clear();
   watchMeter(state.user.id, voice.stream);
   voice.timer = setInterval(tickMeters, 120);
-  $('voice-bar').hidden = false; $('voice-name').textContent = c.name; setMuteUI(); setGateUI();
+  $('voice-bar').hidden = false; $('mic-tune').hidden = false; $('voice-name').textContent = c.name; setMuteUI(); setGateUI();
   const ch = voice.obs.get(c.id)?.ch; if (!ch) { await leaveVoice(); return toast('Canal de voz indisponível.'); }
   setShareUI();
   await updatePresence();
@@ -602,7 +603,7 @@ async function leaveVoice() {
   clearInterval(voice.gateTimer); voice.gateNodes?.forEach((n) => n.disconnect()); voice.gateNodes = null;
   voice.stream?.getTracks().forEach((t) => t.stop()); voice.stream = null;
   voice.raw?.getTracks().forEach((t) => t.stop()); voice.raw = null;
-  $('voice-bar').hidden = true; $('audio-sink').replaceChildren();
+  $('voice-bar').hidden = true; $('mic-tune').hidden = true; $('audio-sink').replaceChildren();
   try { await ch?.untrack(); } catch { /* já desconectado */ }
   if (state.server && !state.channels.some((x) => x.id === cid)) { const o = voice.obs.get(cid); if (o) { sb.removeChannel(o.ch); voice.obs.delete(cid); } }
   if (state.server) renderChannels();
@@ -627,6 +628,8 @@ function setGateUI() {
   b.setAttribute('aria-label', b.title);
 }
 $('gate-btn').onclick = () => { voice.gateOff = !voice.gateOff; setGateUI(); toast(voice.gateOff ? 'Filtro de ruído desligado' : 'Filtro de ruído ligado'); };
+$('gate-sens').value = voice.sens;
+$('gate-sens').oninput = (e) => { voice.sens = +e.target.value; try { localStorage.setItem('nm_sens', String(voice.sens)); } catch { /* sem storage */ } };
 
 // mostra na barra de voz quantas pessoas estão realmente conectadas
 function updateVoiceStatus() {
@@ -642,28 +645,40 @@ window.addEventListener('pagehide', () => { voice.stream?.getTracks().forEach((t
 function cleanMic(raw) {
   const ctx = voice.ctx;
   const src = ctx.createMediaStreamSource(raw);
-  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 130;
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 110;
   const an = ctx.createAnalyser(); an.fftSize = 512;
   const delay = ctx.createDelay(0.5); delay.delayTime.value = 0.1; // dá tempo do portão abrir antes da fala chegar
   const gate = ctx.createGain(); gate.gain.value = 0;
-  // compressor segura os picos para o ganho extra (o microfone sem ganho automático costuma vir baixo)
-  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.knee.value = 12; comp.ratio.value = 6; comp.attack.value = 0.003; comp.release.value = 0.25;
+  // microfone sem ganho automático vem baixo: sobe o volume e o compressor segura os picos (gritos não estouram)
+  const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -24; comp.knee.value = 6; comp.ratio.value = 8; comp.attack.value = 0.003; comp.release.value = 0.25;
+  const makeup = ctx.createGain(); makeup.gain.value = 1.8;
   const dest = ctx.createMediaStreamDestination();
-  src.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(comp); comp.connect(dest);
-  // o limite do portão se adapta ao ruído de fundo medido, então funciona com microfone baixo ou alto
-  const buf = new Uint8Array(an.fftSize); let above = 0, hold = 0, floor = 0.004;
+  src.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(comp); comp.connect(makeup); makeup.connect(dest);
+  // o limite do portão acompanha o ruído de fundo medido; a "sensibilidade" (1-10) define quão acima do ruído a fala precisa estar
+  const buf = new Uint8Array(an.fftSize), hist = []; let hold = 0, floor = 0.004, tick = 0;
   voice.gateTimer = setInterval(() => {
     an.getByteTimeDomainData(buf);
     let sum = 0; for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
-    const rms = Math.sqrt(sum / buf.length), loud = rms > Math.max(0.006, floor * 3.5);
-    if (!loud && hold === 0) floor = Math.min(0.03, Math.max(0.0008, floor * 0.99 + rms * 0.01));
-    above = loud ? above + 1 : 0;
-    if (above >= 3) hold = 14; else if (hold > 0) hold--;
+    const rms = Math.sqrt(sum / buf.length);
+    const thr = Math.max(0.0025, floor * (5.4 - voice.sens * 0.4)), loud = rms > thr;
+    if (!loud && hold === 0) floor = Math.min(0.03, Math.max(0.0008, rms < floor ? floor * 0.95 + rms * 0.05 : floor * 0.995 + rms * 0.005));
+    // abre quando 3 das últimas 5 janelas (~100 ms) estão acima do limite: fala (sílabas com pausas) passa, clique isolado de tecla não
+    hist.push(loud ? 1 : 0); if (hist.length > 5) hist.shift();
+    if (hist.reduce((a, b) => a + b, 0) >= 3) hold = 20; else if (hold > 0) hold--;
     const open = voice.gateOff || hold > 0;
-    gate.gain.setTargetAtTime(open ? 1.8 : 0, ctx.currentTime, open ? 0.015 : 0.06);
+    gate.gain.setTargetAtTime(open ? 3 : 0, ctx.currentTime, open ? 0.015 : 0.06);
+    if (++tick % 3 === 0) paintLevel(rms, thr, open);
   }, 20);
-  voice.gateNodes = [src, hp, an, delay, gate, comp];
+  voice.gateNodes = [src, hp, an, delay, gate, comp, makeup];
   return dest.stream;
+}
+
+// medidor: barra = o que o microfone capta; traço = limite para o filtro abrir; verde = transmitindo
+function paintLevel(rms, thr, open) {
+  const bar = $('lvl-bar'), mark = $('lvl-thr'); if (!bar) return;
+  const sc = (v) => Math.min(100, Math.sqrt(v / 0.08) * 100);
+  bar.style.width = sc(rms) + '%'; mark.style.left = sc(thr) + '%';
+  bar.style.background = open ? '#4ade80' : '#6b6d80';
 }
 
 function send(to, type, data, fresh) {
