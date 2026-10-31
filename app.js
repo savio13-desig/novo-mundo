@@ -531,12 +531,16 @@ async function joinVoice(c) {
   if (voice.id === c.id) return;
   if (voice.id) await leaveVoice();
   if (!navigator.mediaDevices?.getUserMedia) return toast('Seu navegador não permite microfone aqui (precisa de HTTPS).');
-  try {
-    voice.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false });
-  } catch { return toast('Permita o acesso ao microfone para entrar na voz.'); }
-  voice.id = c.id; voice.name = c.name; voice.muted = false; voice.sid = crypto.randomUUID(); voice.peerSid.clear();
   voice.ctx = voice.ctx || new (window.AudioContext || window.webkitAudioContext)();
   voice.ctx.resume();
+  try {
+    // sem ganho automático: ele sobe o chiado de fundo quando você fica quieto
+    voice.raw = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false, channelCount: 1, sampleRate: 48000, voiceIsolation: true }, video: false,
+    });
+  } catch { return toast('Permita o acesso ao microfone para entrar na voz.'); }
+  voice.stream = cleanMic(voice.raw);
+  voice.id = c.id; voice.name = c.name; voice.muted = false; voice.sid = crypto.randomUUID(); voice.peerSid.clear();
   watchMeter(state.user.id, voice.stream);
   voice.timer = setInterval(tickMeters, 120);
   $('voice-bar').hidden = false; $('voice-name').textContent = c.name; setMuteUI();
@@ -556,7 +560,9 @@ async function leaveVoice() {
   voice.screens.clear(); renderScreens();
   clearInterval(voice.timer); voice.timer = null;
   for (const m of voice.meters.values()) m.src.disconnect(); voice.meters.clear();
+  clearInterval(voice.gateTimer); voice.gateNodes?.forEach((n) => n.disconnect()); voice.gateNodes = null;
   voice.stream?.getTracks().forEach((t) => t.stop()); voice.stream = null;
+  voice.raw?.getTracks().forEach((t) => t.stop()); voice.raw = null;
   $('voice-bar').hidden = true; $('audio-sink').replaceChildren();
   try { await ch?.untrack(); } catch { /* já desconectado */ }
   if (state.server && !state.channels.some((x) => x.id === cid)) { const o = voice.obs.get(cid); if (o) { sb.removeChannel(o.ch); voice.obs.delete(cid); } }
@@ -574,10 +580,35 @@ $('mute-btn').onclick = async () => {
   await updatePresence();
 };
 $('leave-voice').onclick = leaveVoice;
-window.addEventListener('pagehide', () => { voice.stream?.getTracks().forEach((t) => t.stop()); });
+window.addEventListener('pagehide', () => { voice.stream?.getTracks().forEach((t) => t.stop()); voice.raw?.getTracks().forEach((t) => t.stop()); });
 
-function send(to, type, data) {
-  voice.obs.get(voice.id)?.ch.send({ type: 'broadcast', event: 'signal', payload: { from: state.user.id, to, type, data } });
+// Limpa o microfone: corta graves de teclado/mesa e fecha o "portão" quando você não está falando.
+// O portão só abre com som sustentado (~60 ms), então um clique isolado de tecla não passa.
+function cleanMic(raw) {
+  const ctx = voice.ctx;
+  const src = ctx.createMediaStreamSource(raw);
+  const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 130;
+  const an = ctx.createAnalyser(); an.fftSize = 512;
+  const delay = ctx.createDelay(0.5); delay.delayTime.value = 0.1; // dá tempo do portão abrir antes da fala chegar
+  const gate = ctx.createGain(); gate.gain.value = 0;
+  const dest = ctx.createMediaStreamDestination();
+  src.connect(hp); hp.connect(an); hp.connect(delay); delay.connect(gate); gate.connect(dest);
+  const buf = new Uint8Array(an.fftSize); let above = 0, hold = 0;
+  voice.gateTimer = setInterval(() => {
+    an.getByteTimeDomainData(buf);
+    let sum = 0; for (const v of buf) { const d = (v - 128) / 128; sum += d * d; }
+    const loud = Math.sqrt(sum / buf.length) > 0.022;
+    above = loud ? above + 1 : 0;
+    if (above >= 3) hold = 14; else if (hold > 0) hold--;
+    const open = hold > 0;
+    gate.gain.setTargetAtTime(open ? 1 : 0, ctx.currentTime, open ? 0.015 : 0.06);
+  }, 20);
+  voice.gateNodes = [src, hp, an, delay, gate];
+  return dest.stream;
+}
+
+function send(to, type, data, fresh) {
+  voice.obs.get(voice.id)?.ch.send({ type: 'broadcast', event: 'signal', payload: { from: state.user.id, to, type, data, fresh: !!fresh } });
 }
 
 function updatePresence() {
@@ -606,23 +637,42 @@ function addLocalTracks(pc, st) {
 function makePeer(uid, addTracks) {
   closePeer(uid);
   const pc = new RTCPeerConnection(ICE);
-  const st = { making: false, ignore: false, polite: state.user.id > uid, screenSender: null, pending: [] };
+  const st = { making: false, ignore: false, polite: state.user.id > uid, screenSender: null, pending: [], first: !!addTracks, timers: [] };
   pc.onicecandidate = (e) => { if (e.candidate) send(uid, 'ice', e.candidate.toJSON()); };
   pc.ontrack = (e) => attachRemote(uid, e);
   pc.onnegotiationneeded = async () => {
-    try { st.making = true; await pc.setLocalDescription(); send(uid, 'desc', pc.localDescription.toJSON()); }
+    try {
+      st.making = true; await pc.setLocalDescription();
+      send(uid, 'desc', pc.localDescription.toJSON(), st.first); st.first = false; // a 1ª oferta é "nova": o outro lado recria a conexão
+    }
     catch (err) { console.warn('voz:', err); } finally { st.making = false; }
   };
   pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'connected') tuneSenders(pc);
-    if (pc.connectionState === 'failed') toast('Falha de conexão de voz com um amigo.');
+    st.timers.forEach(clearTimeout); st.timers = [];
+    const s = pc.connectionState;
+    if (s === 'connected') tuneSenders(pc);
+    else if (s === 'disconnected') st.timers.push(setTimeout(() => recoverPeer(uid, pc), 2000));
+    else if (s === 'failed') recoverPeer(uid, pc);
   };
   voice.peers.set(uid, pc); voice.st.set(uid, st);
   if (addTracks) addLocalTracks(pc, st);
   return pc;
 }
 
+// conexão caiu: 1º tenta reiniciar o caminho de rede (ICE); se não voltar em 5 s, recria a conexão do zero
+function recoverPeer(uid, pc) {
+  const st = voice.st.get(uid);
+  if (!st || voice.peers.get(uid) !== pc || pc.connectionState === 'connected') return;
+  try { pc.restartIce(); } catch { /* ignora */ }
+  st.timers.push(setTimeout(() => {
+    if (voice.peers.get(uid) !== pc || pc.connectionState === 'connected') return;
+    if (state.user.id < uid) { closePeer(uid); maybeOffer(uid); } // quem tem menor id recria; o outro recebe uma oferta "nova"
+    else send(uid, 'reset');                                       // o outro lado pede ao de menor id para recriar
+  }, 5000));
+}
+
 function closePeer(uid) {
+  voice.st.get(uid)?.timers.forEach(clearTimeout);
   voice.peers.get(uid)?.close(); voice.peers.delete(uid); voice.st.delete(uid);
   document.getElementById('a-' + uid)?.remove();
   const m = voice.meters.get(uid); if (m) { m.src.disconnect(); voice.meters.delete(uid); }
@@ -642,10 +692,11 @@ function maybeOffer(uid) {
   makePeer(uid, true); // adicionar as faixas dispara a oferta (onnegotiationneeded)
 }
 
-async function onSignal({ from, to, type, data }) {
+async function onSignal({ from, to, type, data, fresh }) {
   if (!voice.id || to !== state.user.id) return;
   try {
-    if (type === 'desc') await onDesc(from, data);
+    if (type === 'reset') { if (state.user.id < from) { closePeer(from); maybeOffer(from); } }
+    else if (type === 'desc') { if (fresh && voice.peers.has(from)) closePeer(from); await onDesc(from, data); }
     else if (type === 'ice') {
       const pc = voice.peers.get(from), st = voice.st.get(from); if (!pc) return;
       if (pc.remoteDescription) { try { await pc.addIceCandidate(data); } catch (e) { if (!st.ignore) console.warn(e); } }
