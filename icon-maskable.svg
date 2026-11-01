@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+<rect width="120" height="120" fill="#0e1a22"/>
+<g transform="translate(60 60) scale(.68) translate(-60 -60)">
+<circle cx="60" cy="60" r="46" fill="none" stroke="#e8dcc0" stroke-opacity=".35" stroke-width="1.2"/>
+<circle cx="60" cy="60" r="40" fill="none" stroke="#e8dcc0" stroke-opacity=".25" stroke-width=".9" stroke-dasharray="1.5 3.2"/>
+<g fill="#e8dcc0" fill-opacity=".5">
+<path d="M60 30 L63 57 L60 60 L57 57Z" transform="rotate(45 60 60)"/>
+<path d="M60 30 L63 57 L60 60 L57 57Z" transform="rotate(135 60 60)"/>
+<path d="M60 30 L63 57 L60 60 L57 57Z" transform="rotate(225 60 60)"/>
+<path d="M60 30 L63 57 L60 60 L57 57Z" transform="rotate(315 60 60)"/>
+</g>
+<path d="M12 60 L55 56 L60 60 L55 64Z" fill="#e8dcc0"/>
+<path d="M108 60 L65 56 L60 60 L65 64Z" fill="#e8dcc0"/>
+<path d="M60 108 L64 65 L60 60 L56 65Z" fill="#e8dcc0"/>
+<path d="M60 8 L66 54 L60 60 L54 54Z" fill="#c9a45c"/>
+<circle cx="60" cy="60" r="3.2" fill="#0e1a22" stroke="#c9a45c" stroke-width="1.6"/>
+</g>
+</svg>
