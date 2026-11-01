@@ -108,6 +108,8 @@ dialog menu{display:flex;justify-content:flex-end;gap:8px;padding:0;margin:14px 
 .screen{flex:1 1 320px;min-width:0;background:#000;border-radius:10px;overflow:hidden;position:relative}
 .screen video{width:100%;max-height:50vh;display:block;object-fit:contain;cursor:zoom-in;background:#000}
 .screen span{position:absolute;left:8px;top:6px;background:#000a;padding:2px 8px;border-radius:6px;font-size:.8rem}
+.voice-pill{margin-left:auto;gap:2px;background:var(--bg0);border-radius:20px;padding:0 4px}
+#pill-leave{color:var(--danger)}
 .only-mobile{display:none}
 
 @media (max-width:900px){

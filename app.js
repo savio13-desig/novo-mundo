@@ -583,7 +583,7 @@ async function joinVoice(c) {
   voice.id = c.id; voice.name = c.name; voice.muted = false; voice.sid = crypto.randomUUID(); voice.peerSid.clear();
   watchMeter(state.user.id, voice.stream);
   voice.timer = setInterval(tickMeters, 120);
-  $('voice-bar').hidden = false; $('mic-tune').hidden = false; $('voice-name').textContent = c.name; setMuteUI(); setGateUI();
+  $('voice-bar').hidden = false; $('mic-tune').hidden = false; $('voice-pill').hidden = false; $('voice-name').textContent = c.name; setMuteUI(); setGateUI();
   const ch = voice.obs.get(c.id)?.ch; if (!ch) { await leaveVoice(); return toast('Canal de voz indisponível.'); }
   setShareUI();
   await updatePresence();
@@ -603,7 +603,7 @@ async function leaveVoice() {
   clearInterval(voice.gateTimer); voice.gateNodes?.forEach((n) => n.disconnect()); voice.gateNodes = null;
   voice.stream?.getTracks().forEach((t) => t.stop()); voice.stream = null;
   voice.raw?.getTracks().forEach((t) => t.stop()); voice.raw = null;
-  $('voice-bar').hidden = true; $('mic-tune').hidden = true; $('audio-sink').replaceChildren();
+  $('voice-bar').hidden = true; $('mic-tune').hidden = true; $('voice-pill').hidden = true; $('audio-sink').replaceChildren();
   try { await ch?.untrack(); } catch { /* já desconectado */ }
   if (state.server && !state.channels.some((x) => x.id === cid)) { const o = voice.obs.get(cid); if (o) { sb.removeChannel(o.ch); voice.obs.delete(cid); } }
   if (state.server) renderChannels();
@@ -611,6 +611,7 @@ async function leaveVoice() {
 
 function setMuteUI() {
   const b = $('mute-btn'); b.setAttribute('aria-pressed', String(voice.muted));
+  $('pill-mute').textContent = voice.muted ? '🔇' : '🎤';
   b.textContent = voice.muted ? '🔇' : '🎤'; b.title = voice.muted ? 'Ativar microfone' : 'Silenciar microfone';
   b.setAttribute('aria-label', b.title);
 }
@@ -620,6 +621,14 @@ $('mute-btn').onclick = async () => {
   await updatePresence();
 };
 $('leave-voice').onclick = leaveVoice;
+// no celular o menu lateral fica fechado: mudo e sair ficam também no topo do chat
+$('pill-mute').onclick = () => $('mute-btn').click();
+$('pill-leave').onclick = leaveVoice;
+if (!navigator.mediaDevices?.getDisplayMedia) $('share-btn').hidden = true; // celulares geralmente não compartilham tela
+// tocar fora do menu (no escurecido) fecha o menu no celular
+document.addEventListener('click', (e) => {
+  if (document.body.classList.contains('nav-open') && !e.target.closest('.servers, .channels, #menu-btn')) document.body.classList.remove('nav-open');
+});
 
 function setGateUI() {
   const b = $('gate-btn'), on = !voice.gateOff;
