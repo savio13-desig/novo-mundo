@@ -15,7 +15,7 @@ const state = {
 };
 
 /* ---------- utilidades ---------- */
-const COLORS = ['#7c5cff', '#22d3ee', '#f59e0b', '#ef4444', '#10b981', '#ec4899', '#3b82f6', '#84cc16'];
+const COLORS = ['#b4562f', '#2f7f78', '#7a5ea8', '#a8452f', '#4a7a3b', '#8a6a1f', '#3d6a99', '#a14a6b'];
 const colorFor = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
 const initial = (s) => (String(s || '?').trim()[0] || '?').toUpperCase();
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
@@ -691,7 +691,7 @@ function paintLevel(rms, thr, open) {
   const bar = $('lvl-bar'), mark = $('lvl-thr'); if (!bar) return;
   const sc = (v) => Math.min(100, Math.sqrt(v / 0.08) * 100);
   bar.style.width = sc(rms) + '%'; mark.style.left = sc(thr) + '%';
-  bar.style.background = open ? '#4ade80' : '#6b6d80';
+  bar.style.background = open ? '#4ade80' : '#6b8088';
 }
 
 function send(to, type, data, fresh) {

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+<g fill="none" stroke="#e8dcc0" stroke-opacity=".07" stroke-width="1">
+<path d="M0 200H1600M0 400H1600M0 600H1600M0 800H1600"/>
+<path d="M200 0V1000M400 0V1000M600 0V1000M800 0V1000M1000 0V1000M1200 0V1000M1400 0V1000"/>
+</g>
+<g transform="translate(1250 760)" fill="none" stroke="#c9a45c">
+<circle r="330" stroke-opacity=".16" stroke-width="1.5"/>
+<circle r="290" stroke-opacity=".12" stroke-dasharray="3 9"/>
+<circle r="190" stroke-opacity=".10"/>
+<path d="M0 -380V380M-380 0H380" stroke-opacity=".12"/>
+<path d="M0 -330L22 -22L330 0L22 22L0 330L-22 22L-330 0L-22 -22Z" stroke-opacity=".14"/>
+</g>
+<g transform="translate(260 220)" fill="none" stroke="#5fb3a8" stroke-opacity=".12">
+<ellipse rx="260" ry="120"/><ellipse rx="200" ry="88"/><ellipse rx="140" ry="58"/><ellipse rx="80" ry="30"/>
+</g>
+</svg>
