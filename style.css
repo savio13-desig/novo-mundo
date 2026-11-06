@@ -40,11 +40,15 @@ button,input{font:inherit;color:inherit}
 .sea{position:relative;min-width:0;min-height:0;overflow:hidden;
   background:radial-gradient(900px 600px at 80% 100%,#3a1f6e 0%,transparent 60%),radial-gradient(700px 500px at 10% 0%,#1d2a7a 0%,transparent 60%),linear-gradient(180deg,#0c0a2e,#150d3d)}
 .sea svg{position:absolute;inset:0;width:100%;height:100%}
-.top{position:absolute;z-index:3;left:14px;right:14px;top:12px;display:flex;align-items:center;gap:10px;padding:6px 14px 6px 8px;border-radius:999px;background:var(--cream);color:var(--ink);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
+.top{position:absolute;z-index:3;left:14px;right:14px;top:10px;display:flex;align-items:center;gap:10px;padding:0;background:none;color:var(--cream);border:0;box-shadow:none;pointer-events:none}
+.top>*{pointer-events:auto}
+.top .sp{pointer-events:none}
+.top .brand,.top .top-srv{text-shadow:2px 2px 0 var(--ink),-1px -1px 0 var(--ink),1px -1px 0 var(--ink),-1px 1px 0 var(--ink)}
+.top .top-logo{box-shadow:2px 2px 0 var(--ink)}
 .top-btn{width:36px;height:36px;border-radius:50%;border:3px solid var(--ink);background:var(--sun);font-size:1.1rem;cursor:pointer;color:var(--ink);line-height:1}
 .top-logo{width:32px;height:32px;border-radius:9px;border:2px solid var(--ink)}
 .brand{font:400 1.7rem/1 var(--display);letter-spacing:.04em}
-.top-srv{font-size:.85rem;font-weight:700;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-srv{font-size:.85rem;font-weight:700;opacity:.95;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sp{flex:1}
 .stack{display:flex}
 .stack i{width:30px;height:30px;border-radius:50%;border:3px solid var(--ink);background:var(--c);margin-left:-8px;display:grid;place-items:center;font-size:.95rem;font-style:normal}
