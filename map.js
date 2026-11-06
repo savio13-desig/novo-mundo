@@ -14,10 +14,35 @@ const svgEl = (tag, attrs, parent) => {
 (function drawStars() {
   const box = document.getElementById('stars'); if (!box) return;
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  for (let i = 0; i < 60; i++) {
-    const c = svgEl('circle', { cx: rnd() * 1000, cy: -50 + rnd() * 710, r: 0.8 + rnd() * 1.6, class: 'star' }, box);
+  /* nebulosas */
+  const defs = svgEl('defs', {}, box);
+  [['nb1', '#8a4dff'], ['nb2', '#ff4fa3'], ['nb3', '#2fc6b0']].forEach(([id, col]) => {
+    const g = svgEl('radialGradient', { id }, defs);
+    svgEl('stop', { offset: '0', 'stop-color': col, 'stop-opacity': '.55' }, g); svgEl('stop', { offset: '1', 'stop-color': col, 'stop-opacity': '0' }, g);
+  });
+  svgEl('ellipse', { cx: 300, cy: 60, rx: 330, ry: 170, fill: 'url(#nb1)', class: 'nebula' }, box);
+  svgEl('ellipse', { cx: 720, cy: 420, rx: 300, ry: 190, fill: 'url(#nb2)', class: 'nebula n2' }, box);
+  svgEl('ellipse', { cx: 120, cy: 560, rx: 260, ry: 140, fill: 'url(#nb3)', class: 'nebula n3' }, box);
+  /* planeta com anel e planetinha */
+  const pl = svgEl('g', { class: 'planet', transform: 'translate(610 168) rotate(-18)' }, box);
+  svgEl('ellipse', { rx: 54, ry: 13, fill: 'none', stroke: '#fff3d1', 'stroke-width': 5, opacity: '.55' }, pl);
+  svgEl('circle', { r: 28, fill: '#ff9a3d', stroke: '#1a1030', 'stroke-width': 5 }, pl);
+  svgEl('path', { d: 'M-24 -8Q0 -18 24 -8M-27 6Q0 -4 27 6', fill: 'none', stroke: '#c8641d', 'stroke-width': 4 }, pl);
+  svgEl('path', { d: 'M-54 0A54 13 0 0 0 54 0', fill: 'none', stroke: '#fff3d1', 'stroke-width': 5, opacity: '.9' }, pl);
+  const p2 = svgEl('g', { class: 'planet p2', transform: 'translate(300 300)' }, box);
+  svgEl('circle', { r: 17, fill: '#5ed3e6', stroke: '#1a1030', 'stroke-width': 4 }, p2);
+  svgEl('circle', { cx: -5, cy: -4, r: 4, fill: 'rgba(26,16,48,.25)' }, p2); svgEl('circle', { cx: 6, cy: 6, r: 3, fill: 'rgba(26,16,48,.25)' }, p2);
+  /* estrelas, algumas em cruz brilhante */
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * 1000, y = -50 + rnd() * 710, big = i % 9 === 0;
+    const c = big
+      ? svgEl('path', { d: `M${x} ${y - 9}L${x + 2.5} ${y - 2.5}L${x + 9} ${y}L${x + 2.5} ${y + 2.5}L${x} ${y + 9}L${x - 2.5} ${y + 2.5}L${x - 9} ${y}L${x - 2.5} ${y - 2.5}Z`, class: 'star', fill: '#ffe9a8' }, box)
+      : svgEl('circle', { cx: x, cy: y, r: 0.8 + rnd() * 1.6, class: 'star' }, box);
     c.style.animationDelay = rnd() * 3 + 's';
   }
+  /* cometa que cruza o céu de tempos em tempos */
+  const cm = svgEl('g', { class: 'comet' }, box);
+  svgEl('path', { d: 'M0 0L-150 -48L-150 -40Z', fill: '#fff3d1', opacity: '.5' }, cm); svgEl('circle', { r: 7, fill: '#fff3d1' }, cm);
 })();
 
 /* ---------- desenhos das ilhas (coordenadas locais, centro em 0,0) ---------- */
@@ -29,7 +54,7 @@ const ISLAND_ART = {
     <g class="ink" stroke-width="4"><path d="M76 120C80 100 82 88 86 70" fill="none"/><path d="M86 70C68 60 54 68 48 80C64 76 76 76 86 70Z M86 70C98 54 118 54 126 62C112 66 98 66 86 70Z" fill="#2f9e55"/><rect x="262" y="128" width="22" height="18" fill="#a86a3c"/></g>
     <g transform="translate(172 100) rotate(-7)"><g class="ink" stroke-width="4">
       <path d="M-72 0L72 0L54 28L-54 28Z" fill="#a86a3c"/><path d="M0 0V-78" fill="none"/>
-      <path d="M2 -72Q48 -58 42 -8L2 -8Z" fill="#fff3d1"/><path d="M-2 -78L-28 -70L-2 -62Z" fill="#ef4b3c"/>
+      <path d="M2 -72Q48 -58 42 -8L2 -8Z" fill="#fff3d1"/><path class="wave" d="M-2 -78L-28 -70L-2 -62Z" fill="#ef4b3c"/>
       <circle cx="22" cy="-38" r="10" fill="#ef4b3c"/>
       <circle cx="-34" cy="13" r="4.5" fill="#ffcf3a"/><circle cx="-12" cy="14" r="4.5" fill="#ffcf3a"/><circle cx="10" cy="14" r="4.5" fill="#ffcf3a"/>
     </g></g></g>`,
@@ -40,15 +65,15 @@ const ISLAND_ART = {
       <g class="ink top-s" stroke-width="5" fill="#fff3d1"><rect x="666" y="10" width="184" height="206" rx="6"/></g>
       <g class="ink" stroke-width="4"><rect x="684" y="30" width="148" height="136" fill="#4aa3e8"/>
         <circle cx="804" cy="62" r="17" fill="#ffcf3a"/><path d="M684 166L738 104L774 142L802 98L832 166Z" fill="#58c26b"/>
-        <rect x="728" y="-2" width="60" height="22" fill="#ffcf3a" opacity=".92"/></g>
+        <rect x="728" y="-2" width="60" height="22" fill="#ffcf3a" opacity=".92"/><rect class="flash" x="684" y="30" width="148" height="136" fill="#fff" stroke="none"/></g>
     </g></g>`,
   moinho: `<g transform="scale(1.3) translate(-100 -110)"><g stroke="#1a1030" stroke-width="4" stroke-linejoin="round">
     <path d="M30 112Q40 148 80 170Q100 182 120 168Q160 148 170 112Z" fill="#8b5a3c"/>
     <ellipse class="top-s" cx="100" cy="110" rx="70" ry="20" fill="#58c26b"/>
     <path d="M82 112L90 62H110L118 112Z" fill="#fff3d1"/><path d="M84 64L100 42L116 64Z" fill="#ef4b3c"/>
     <path d="M94 112V94Q100 86 106 94V112Z" fill="#8b5a3c"/>
-    <rect x="96" y="6" width="8" height="40" fill="#fff3d1"/><rect x="96" y="54" width="8" height="40" fill="#fff3d1"/>
-    <rect x="54" y="48" width="40" height="8" fill="#fff3d1"/><rect x="106" y="48" width="40" height="8" fill="#fff3d1"/>
+    <g class="spin"><rect x="96" y="6" width="8" height="40" fill="#fff3d1"/><rect x="96" y="54" width="8" height="40" fill="#fff3d1"/>
+    <rect x="54" y="48" width="40" height="8" fill="#fff3d1"/><rect x="106" y="48" width="40" height="8" fill="#fff3d1"/></g>
     <circle cx="100" cy="52" r="6" fill="#ffcf3a"/></g>
     <g fill="#ff7fb0" stroke="#1a1030" stroke-width="2"><circle cx="52" cy="112" r="4"/><circle cx="148" cy="116" r="4"/><circle cx="136" cy="106" r="4"/></g></g>`,
   taverna: `<g transform="scale(1.3) translate(-100 -110)"><g stroke="#1a1030" stroke-width="4" stroke-linejoin="round">
@@ -58,13 +83,13 @@ const ISLAND_ART = {
     <rect x="50" y="64" width="100" height="46" fill="#c98b4e"/><path d="M42 66L100 36L158 66Z" fill="#8f2f2f"/>
     <rect x="88" y="80" width="24" height="30" fill="#5a3a22"/>
     <rect x="60" y="76" width="18" height="16" fill="#ffcf3a"/><rect x="122" y="76" width="18" height="16" fill="#ffcf3a"/></g>
-    <g fill="#fff" stroke="#1a1030" stroke-width="3"><circle cx="134" cy="22" r="7"/><circle cx="146" cy="12" r="6"/></g></g>`,
+    <g class="smoke" fill="#fff" stroke="#1a1030" stroke-width="3"><circle cx="134" cy="22" r="7"/><circle cx="146" cy="12" r="6"/></g></g>`,
   voz: `<g transform="translate(-432 -436)">
     <path class="cloud" d="M360 612 q-26 -4 -22 -24 q6 -22 32 -14 q10 -22 40 -14 q22 -12 40 6 q30 -6 34 20 q4 22 -22 26z"/>
     <path class="ink" fill="#8b6f93" d="M304 460 C316 508 356 550 392 584 C404 592 416 566 432 586 C448 600 460 566 478 578 C512 548 552 508 562 462Z"/>
     <path class="ink top-s" fill="#cfd3e8" d="M290 440 C286 380 360 346 436 348 C516 346 580 384 574 440 C570 480 510 498 434 498 C356 498 294 480 290 440Z"/>
     <g class="crater"><ellipse cx="350" cy="410" rx="22" ry="10"/><ellipse cx="530" cy="470" rx="26" ry="10"/><ellipse cx="520" cy="396" rx="14" ry="6"/><ellipse cx="350" cy="478" rx="16" ry="7"/></g>
-    <g transform="translate(432 436) scale(1.15)"><circle r="34" fill="#fff3d1" class="ink" stroke-width="4"/>
+    <g transform="translate(432 436) scale(1.15)"><circle class="ping" r="34" fill="none" stroke="#fff3d1" stroke-width="3"/><circle r="34" fill="#fff3d1" class="ink" stroke-width="4"/>
       <g class="needle"><path d="M0 -27 L7 -5 L0 0 L-7 -5Z" fill="#ef4b3c"/></g>
       <path d="M0 27 L5 5 L0 0 L-5 5ZM-27 0 L-5 -5 L0 0 L-5 5ZM27 0 L5 -5 L0 0 L5 5Z" fill="#1a1030"/></g></g>`,
 };
@@ -74,18 +99,20 @@ const wrapIsle = (inner) => `<g transform="scale(1.3) translate(-100 -110)"><g s
   <path d="M30 112Q40 148 80 170Q100 182 120 168Q160 148 170 112Z" fill="#8b5a3c"/>
   <ellipse class="top-s" cx="100" cy="110" rx="70" ry="20" fill="#58c26b"/>${inner}</g></g>`;
 ISLAND_ART.recepcao = wrapIsle(`<rect x="56" y="68" width="88" height="42" fill="#fff3d1"/><path d="M48 70L100 38L152 70Z" fill="#ef4b3c"/>
-  <rect x="86" y="84" width="28" height="26" fill="#8b5a3c"/><circle cx="100" cy="30" r="9" fill="#ffcf3a"/><path d="M100 39V46" fill="none"/>
+  <rect x="86" y="84" width="28" height="26" fill="#8b5a3c"/><circle class="swing" cx="100" cy="30" r="9" fill="#ffcf3a"/><path d="M100 39V46" fill="none"/>
   <rect x="62" y="80" width="16" height="14" fill="#9fd8ff"/><rect x="122" y="80" width="16" height="14" fill="#9fd8ff"/>`);
 ISLAND_ART.vendas = wrapIsle(`<rect x="54" y="68" width="92" height="42" fill="#ffe9b0"/>
   <path d="M44 68L52 46H148L156 68Z" fill="#ef4b3c"/><path d="M72 46L68 68M100 46V68M128 46L132 68" fill="none" stroke="#fff3d1"/>
-  <rect x="88" y="84" width="24" height="26" fill="#8b5a3c"/><circle cx="68" cy="92" r="9" fill="#ffcf3a"/><circle cx="134" cy="92" r="9" fill="#ffcf3a"/>
+  <rect x="88" y="84" width="24" height="26" fill="#8b5a3c"/><circle class="hopc" cx="68" cy="92" r="9" fill="#ffcf3a"/><circle class="hopc c2" cx="134" cy="92" r="9" fill="#ffcf3a"/>
   <path d="M132 36L144 24L154 30" fill="none" stroke="#2f9e55" stroke-width="5"/>`);
 ISLAND_ART.suporte = wrapIsle(`<rect x="58" y="70" width="84" height="40" fill="#9fd8ff"/><rect x="86" y="86" width="28" height="24" fill="#8b5a3c"/>
   <path d="M70 62Q100 14 130 62" fill="none" stroke-width="7"/><path d="M70 62Q100 14 130 62" fill="none" stroke="#fff3d1" stroke-width="3"/>
-  <rect x="62" y="54" width="14" height="22" rx="5" fill="#ef4b3c"/><rect x="124" y="54" width="14" height="22" rx="5" fill="#ef4b3c"/>`);
+  <rect x="62" y="54" width="14" height="22" rx="5" fill="#ef4b3c"/><rect x="124" y="54" width="14" height="22" rx="5" fill="#ef4b3c"/>
+  <g class="dots" fill="#fff3d1" stroke-width="2"><circle cx="148" cy="38" r="4"/><circle cx="160" cy="38" r="4"/><circle cx="172" cy="38" r="4"/></g>`);
 ISLAND_ART.financeiro = wrapIsle(`<rect x="54" y="54" width="92" height="56" rx="6" fill="#8aa0b8"/><circle cx="100" cy="82" r="20" fill="#cfd3e8"/>
   <circle cx="100" cy="82" r="6" fill="#ffcf3a"/><path d="M100 82L112 70" fill="none" stroke-width="3"/>
-  <ellipse cx="44" cy="106" rx="12" ry="5" fill="#ffcf3a"/><ellipse cx="44" cy="99" rx="12" ry="5" fill="#ffcf3a"/><ellipse cx="156" cy="106" rx="12" ry="5" fill="#ffcf3a"/>`);
+  <ellipse cx="44" cy="106" rx="12" ry="5" fill="#ffcf3a"/><ellipse cx="44" cy="99" rx="12" ry="5" fill="#ffcf3a"/><ellipse cx="156" cy="106" rx="12" ry="5" fill="#ffcf3a"/>
+  <path class="spark" d="M154 66l3 8 8 3-8 3-3 8-3-8-8-3 8-3z" fill="#fff3d1" stroke-width="2"/>`);
 
 /* o tipo da ilha vem do nome do canal; o que não casa usa moinho/taverna */
 const KIND_BY_NAME = [[/geral|general/i, 'navio'], [/foto/i, 'polaroid'], [/recep|aviso|bem.?vind/i, 'recepcao'], [/venda|comercial/i, 'vendas'],
@@ -187,8 +214,8 @@ const BURST_POINTS = (() => { let s = ''; for (let i = 0; i < 20; i++) { const a
 function ensurePin(uid) {
   let p = mapState.pins.get(uid); if (p) return p;
   const g = svgEl('g', { class: 'pin' + (uid === state.user.id ? ' me' : ''), 'data-vuid': uid }, $m('pins'));
-  g.innerHTML = `<g class="bob"><polygon class="burst" points="${BURST_POINTS}"/><circle class="body" r="34"/><text class="emj" y="12"></text>
-    <rect class="tag" x="-42" y="40" width="84" height="26" rx="13"/><text class="nm" y="60"></text><text class="state" x="-30" y="-24"></text></g>`;
+  g.innerHTML = `<ellipse class="shadow" cy="44" rx="30" ry="7"/><g class="bob"><polygon class="burst" points="${BURST_POINTS}"/><circle class="body" r="40"/><path class="shine" d="M-26 -14A30 30 0 0 1 -6 -32" /><text class="emj" y="14"></text>
+    <rect class="tag" x="-48" y="46" width="96" height="30" rx="15"/><text class="nm" y="68"></text><text class="state" x="-34" y="-30"></text></g>`;
   g.addEventListener('click', () => { if (uid !== state.user.id) openDm(uid); });
   p = { g, emj: g.querySelector('.emj'), nm: g.querySelector('.nm'), st: g.querySelector('.state'), tag: g.querySelector('.tag') };
   mapState.pins.set(uid, p); return p;
@@ -238,7 +265,9 @@ function renderMap() {
     pin.g.style.setProperty('--c', colorFor(name));
     pin.emj.textContent = emojiFor(name); pin.nm.textContent = name.length > 8 ? name.slice(0, 7) + '…' : name;
     pin.st.textContent = (p.sharing ? '🖥' : '') + (p.muted ? '🔇' : '');
-    pin.g.style.transform = `translate(${x}px,${y}px)`;
+    const tr = `translate(${x}px,${y}px)`;
+    if (pin.g.style.transform && pin.g.style.transform !== tr) { pin.g.classList.add('walk'); clearTimeout(pin.wt); pin.wt = setTimeout(() => pin.g.classList.remove('walk'), 1500); }
+    pin.g.style.transform = tr;
     pin.g.setAttribute('aria-label', name);
   }
   for (const [uid, p] of mapState.pins) if (!live.has(uid)) { p.g.remove(); mapState.pins.delete(uid); }
