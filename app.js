@@ -267,7 +267,7 @@ async function selectChannel(id) {
   document.body.classList.remove('nav-open');
   $('channel-title').textContent = '# ' + state.channel.name;
   $('text').placeholder = `Enviar mensagem em #${state.channel.name}`;
-  renderChannels(); trackLocation(); state.lastMsg = null;
+  renderChannels(); trackLocation(); if (typeof OFFICE !== 'undefined' && OFFICE) OFFICE.enterChannel(id); state.lastMsg = null;
   const box = $('messages'); box.replaceChildren();
   const { data, error } = await sb.from('messages').select('*').eq('channel_id', id).order('created_at', { ascending: false }).limit(100);
   if (error) return toast('Erro ao carregar mensagens.');
@@ -488,6 +488,7 @@ async function addMessage(m) {
   }
   row.append(avatar(name), body);
   $('messages').append(row);
+  if (typeof OFFICE !== 'undefined' && OFFICE && Date.now() - new Date(m.created_at) < 5000) OFFICE.say(m.user_id, m.content);
 }
 
 /* ---------- envio ---------- */

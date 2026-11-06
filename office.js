@@ -199,7 +199,62 @@ const OFFICE = (() => {
     const list = [...actors.values()].sort((p, q) => p.y - q.y);
     for (const a of list) drawChar(ctx, a.x, a.y, a);
     for (const a of list) drawName(ctx, a.x, a.y, a.name);
+    for (const a of list) if (inVoice(a.uid)) drawVoiceMark(ctx, a);
+    for (const a of list) drawBubble(ctx, a);
+    drawBadges(ctx);
     ctx.restore();
+  }
+
+  /* ---------- salas ligadas aos canais ---------- */
+  const ROOM_RE = { recepcao: /recep|aviso|bem.?vind/i, vendas: /venda|comercial/i, suporte: /suporte|atendimento|ajuda/i, financeiro: /financ|caixa/i, lounge: /geral|general/i };
+  function channelFor(room) {
+    const chs = state.channels || [];
+    if (room.id === 'reuniao') return chs.find((c) => c.type === 'voice') || null;
+    const texts = chs.filter((c) => c.type === 'text');
+    const hit = texts.find((c) => ROOM_RE[room.id].test(c.name)); if (hit) return hit;
+    if (room.id === 'lounge') return texts.find((c) => !Object.values(ROOM_RE).some((re) => re.test(c.name))) || null;
+    return null;
+  }
+  const roomOf = (x, y) => { const tx = Math.floor(x / T), ty = Math.floor((y - 2) / T); return roomAt[ty]?.[tx] || null; };
+  let myRoom = null;
+  function checkRoom(me) {
+    const r = roomOf(me.x, me.y); if (r === myRoom) return; myRoom = r; if (!r) return;
+    const ch = channelFor(r); if (!ch) return;
+    if (ch.type === 'text') { if (!(state.view === 'channel' && state.channel?.id === ch.id)) selectChannel(ch.id); }
+    else if (!voice.id) toast('Sala de reunião: toque em "Entrar na voz" para falar com a galera.');
+  }
+  /* quem escolhe um canal pelo menu vai (teleporta) para a sala dele */
+  function enterChannel(id) {
+    const me = actors.get(state.user?.id); if (!active || !me) return;
+    const room = ROOMS.find((r) => channelFor(r)?.id === id); if (!room || roomOf(me.x, me.y) === room) return;
+    me.x = (room.ox + 5) * T; me.y = (room.oy + (room.door === 'down' ? room.h - 1 : 0.5)) * T + (room.door === 'down' ? 6 : 12); myRoom = room; target = null; sentX = -1;
+  }
+  function inVoice(uid) { return !!(typeof voiceUsers === 'function' && state.channels.some((c) => c.type === 'voice' && voiceUsers(c.id).some((u) => u.uid === uid))); }
+  const isSpeaking = (uid) => !!document.querySelector(`[data-vuid="${uid}"].speaking`);
+  /* balão de fala quando alguém manda mensagem */
+  function say(uid, text) {
+    const a = actors.get(uid); if (!a || !text) return;
+    const t = String(text).replace(/\s+/g, ' '); a.say = { text: t.length > 34 ? t.slice(0, 33) + '…' : t, until: performance.now() + 4500 };
+  }
+  function drawBubble(c, a) {
+    if (!a.say || performance.now() > a.say.until) return;
+    c.font = 'bold 8px monospace'; const w = Math.ceil(c.measureText(a.say.text).width) + 10, x = Math.round(a.x - w / 2), y = Math.round(a.y) - 52;
+    R(c, x - 1, y - 1, w + 2, 15, INK); R(c, x, y, w, 13, '#fff3d1'); R(c, Math.round(a.x) - 2, y + 13, 5, 4, INK); R(c, Math.round(a.x) - 1, y + 13, 3, 3, '#fff3d1');
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = INK; c.fillText(a.say.text, Math.round(a.x), y + 7);
+  }
+  function drawBadges(c) {
+    for (const r of ROOMS) {
+      const ch = channelFor(r), n = ch && ch.type === 'text' ? state.unread.get('c:' + ch.id) || 0 : 0; if (!n) continue;
+      const x = (r.ox + r.w) * T - 4, y = (r.oy - 1) * T + 3;
+      R(c, x - 7, y - 7, 14, 14, INK); R(c, x - 6, y - 6, 12, 12, '#ef4b3c');
+      c.font = 'bold 8px monospace'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#fff'; c.fillText(n > 9 ? '9+' : String(n), x, y + 0.5);
+    }
+  }
+  function drawVoiceMark(c, a) {
+    const talking = isSpeaking(a.uid), x = Math.round(a.x), y = Math.round(a.y) - 36 - (talking ? Math.round(Math.sin(performance.now() / 120) * 1.5) : 0);
+    R(c, x - 6, y - 5, 12, 11, INK); R(c, x - 5, y - 4, 10, 9, talking ? '#ffcf3a' : '#fff3d1');
+    R(c, x - 1, y - 3, 3, 5, INK); R(c, x - 2, y + 2, 5, 1, INK);
+    if (talking) { R(c, x + 7, y - 2, 1, 4, '#ffcf3a'); R(c, x + 9, y - 4, 1, 8, '#ffcf3a'); R(c, x - 8, y - 2, 1, 4, '#ffcf3a'); R(c, x - 10, y - 4, 1, 8, '#ffcf3a'); }
   }
 
   /* ---------- tempo real: posições dos amigos (broadcast no canal online-<servidor>) ---------- */
@@ -235,7 +290,7 @@ const OFFICE = (() => {
     const dt = Math.min(0.05, (ts - (last || ts)) / 1000); last = ts;
     if (state.user) {
       if (curServer !== state.server?.id) { if (curServer) for (const uid of [...actors.keys()]) if (uid !== state.user.id) actors.delete(uid); curServer = state.server?.id; sentX = -1; }
-      actorFor(state.user.id, state.profile?.username || 'Você'); step(dt); syncRemote(dt, ts); broadcastPos(ts);
+      actorFor(state.user.id, state.profile?.username || 'Você'); step(dt); syncRemote(dt, ts); broadcastPos(ts); checkRoom(actors.get(state.user.id));
     }
     render(); raf = requestAnimationFrame(loop);
   }
@@ -252,7 +307,7 @@ const OFFICE = (() => {
     if (on) { resize(); last = 0; raf = requestAnimationFrame(loop); }
   }
   document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { cancelAnimationFrame(raf); last = 0; raf = requestAnimationFrame(loop); } });
-  return { setActive, get active() { return active; }, actors, actorFor, ROOMS, canStand, T, onPos };
+  return { setActive, get active() { return active; }, actors, actorFor, ROOMS, canStand, T, onPos, enterChannel, channelFor, say };
 })();
 
 if (OFFICE) {
