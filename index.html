@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0e1a22">
+<meta name="theme-color" content="#0c0a2e">
 <title>Novo Mundo</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -11,7 +11,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bangers&family=DM+Sans:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -19,7 +19,7 @@
 <!-- LOGIN -->
 <main id="auth" class="auth" hidden>
   <form id="auth-form" class="auth-card" autocomplete="on">
-    <img src="icon.svg" alt="" class="auth-logo" width="64" height="64">
+    <img src="icon.svg" alt="" class="auth-logo" width="72" height="72">
     <h1 class="wordmark">Novo Mundo</h1>
     <p class="muted" id="auth-sub">Entre para falar com a galera.</p>
     <div class="tabs" role="tablist">
@@ -41,9 +41,64 @@
 </main>
 
 <!-- APP -->
-<div id="app" class="app" hidden>
-  <nav class="servers" id="servers" aria-label="Servidores"></nav>
+<div id="app" class="world" hidden>
+  <main class="sea" id="sea">
+    <header class="top">
+      <button class="top-btn" id="menu-btn" aria-label="Menu">☰</button>
+      <img src="icon.svg" alt="" class="top-logo">
+      <strong class="brand">Novo Mundo</strong>
+      <span class="top-srv" id="top-server"></span>
+      <span class="sp"></span>
+      <div class="stack" id="stack" aria-label="Online agora"></div>
+    </header>
 
+    <svg id="map" viewBox="0 -50 1000 710" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Mapa do servidor">
+      <g id="stars"></g>
+      <g>
+        <circle cx="905" cy="600" r="190" fill="#efe6c4" class="ink"/>
+        <g class="crater"><circle cx="840" cy="520" r="34"/><circle cx="930" cy="470" r="22"/><circle cx="800" cy="610" r="26"/><circle cx="900" cy="640" r="40"/><circle cx="985" cy="560" r="20"/></g>
+      </g>
+      <g id="trails"></g>
+      <g id="isles"></g>
+      <g id="pins"></g>
+    </svg>
+    <p class="map-empty" id="map-empty" hidden>Crie um servidor (+) ou entre em um com convite (→) pelo menu.</p>
+    <p class="map-more" id="map-more" hidden></p>
+
+    <div class="react-pop" id="react-pop" hidden>
+      <button type="button" aria-label="Reagir com risada">😂</button><button type="button" aria-label="Reagir com fogo">🔥</button><button type="button" aria-label="Reagir com coração">❤️</button><button type="button" aria-label="Reagir com festa">🎉</button><button type="button" aria-label="Reagir com palmas">👏</button>
+    </div>
+    <div class="dock" id="dock" role="toolbar" aria-label="Controles de voz">
+      <button class="dk" id="dk-mute" title="Silenciar microfone" aria-label="Silenciar microfone" hidden>🎙️</button>
+      <button class="dk go" id="dk-join">Entrar na voz</button>
+      <button class="dk" id="dk-share" title="Compartilhar tela" aria-label="Compartilhar tela" hidden>🖥️</button>
+      <button class="dk" id="dk-tune" title="Ajustar microfone" aria-label="Ajustar microfone" hidden>🎚️</button>
+      <button class="dk" id="dk-react" title="Reações" aria-label="Reações" hidden>😄</button>
+    </div>
+    <div class="screens" id="screens" hidden></div>
+  </main>
+
+  <aside class="sheet">
+    <header class="sh-head">
+      <strong id="channel-title"># geral</strong>
+      <span class="voice-pill" id="voice-pill" hidden>
+        <button class="icon-btn" id="pill-mute" title="Silenciar microfone" aria-label="Silenciar microfone">🎤</button>
+        <button class="icon-btn" id="pill-leave" title="Sair da voz" aria-label="Sair da voz">📞</button>
+      </span>
+    </header>
+    <div class="messages" id="messages" role="log" aria-live="polite"></div>
+    <p class="preview" id="preview" hidden></p>
+    <form class="composer" id="composer">
+      <label class="attach" title="Enviar imagem" aria-label="Enviar imagem">＋
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+      </label>
+      <input id="text" type="text" placeholder="Manda uma mensagem" autocomplete="off" maxlength="4000">
+      <button class="send" type="submit" aria-label="Enviar">➤</button>
+    </form>
+  </aside>
+
+  <!-- menu lateral: servidores, canais, mensagens diretas, ajustes -->
+  <nav class="servers" id="servers" aria-label="Servidores"></nav>
   <aside class="channels" id="channels-pane">
     <header class="pane-head"><strong id="server-name">Novo Mundo</strong>
       <button class="icon-btn" id="invite-btn" title="Copiar link de convite" aria-label="Copiar link de convite">🔗</button>
@@ -61,6 +116,7 @@
       <input type="range" id="gate-sens" min="1" max="10" step="1" value="8">
       <div class="lvl" title="Barra: o que o microfone capta. Traço: nível para o filtro abrir. Verde: transmitindo."><i id="lvl-bar"></i><b id="lvl-thr"></b></div>
     </div>
+    <div class="members" id="members" hidden></div>
     <footer class="me">
       <span class="avatar" id="me-avatar"></span>
       <span class="me-name" id="me-name"></span>
@@ -69,29 +125,6 @@
       <button class="icon-btn" id="logout" title="Sair" aria-label="Sair">⎋</button>
     </footer>
   </aside>
-
-  <section class="chat">
-    <header class="pane-head">
-      <button class="icon-btn only-mobile" id="menu-btn" aria-label="Menu">☰</button>
-      <strong id="channel-title"># geral</strong>
-      <span class="voice-pill only-mobile" id="voice-pill" hidden>
-        <button class="icon-btn" id="pill-mute" title="Silenciar microfone" aria-label="Silenciar microfone">🎤</button>
-        <button class="icon-btn" id="pill-leave" title="Sair da voz" aria-label="Sair da voz">📞</button>
-      </span>
-    </header>
-    <div class="screens" id="screens" hidden></div>
-    <div class="messages" id="messages" role="log" aria-live="polite"></div>
-    <form class="composer" id="composer">
-      <label class="icon-btn attach" title="Enviar imagem" aria-label="Enviar imagem">＋
-        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-      </label>
-      <input id="text" type="text" placeholder="Enviar mensagem" autocomplete="off" maxlength="4000">
-      <button class="btn primary" type="submit">Enviar</button>
-    </form>
-    <p class="preview" id="preview" hidden></p>
-  </section>
-
-  <aside class="members" id="members" aria-label="Membros"></aside>
 </div>
 
 <dialog id="dlg">
@@ -110,5 +143,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
+<script src="map.js"></script>
 </body>
 </html>

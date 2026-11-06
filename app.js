@@ -11,15 +11,17 @@ const state = {
   channels: [], channel: null,
   members: [], profiles: new Map(),
   sub: null, pendingFile: null, lastMsg: null,
-  view: 'channel', dmPeer: null, unread: new Map(), online: new Map(), presence: new Map(), rt: null,
+  view: 'channel', dmPeer: null, unread: new Map(), online: new Map(), presence: new Map(), where: new Map(), rt: null,
 };
 
 /* ---------- utilidades ---------- */
-const COLORS = ['#b4562f', '#2f7f78', '#7a5ea8', '#a8452f', '#4a7a3b', '#8a6a1f', '#3d6a99', '#a14a6b'];
+const COLORS = ['#ff9a3d', '#5ed3e6', '#ff7fb0', '#9be15d', '#c7a6ff', '#ffd23f', '#6aa8ff', '#ff8a7a'];
+const EMOJIS = ['🦊', '🐙', '🦁', '🐼', '🐸', '🦉', '🐯', '🐧', '🦄', '🐲', '🐵', '🦖', '🐳', '🐰', '🦈', '🐺'];
+const emojiFor = (s) => { let h = 7; for (const c of String(s)) h = (h * 33 + c.charCodeAt(0)) >>> 0; return EMOJIS[h % EMOJIS.length]; };
 const colorFor = (s) => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COLORS[h % COLORS.length]; };
 const initial = (s) => (String(s || '?').trim()[0] || '?').toUpperCase();
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-function avatar(name) { const a = el('span', 'avatar', initial(name)); a.style.background = colorFor(name); return a; }
+function avatar(name) { const a = el('span', 'avatar', emojiFor(name)); a.style.setProperty('--c', colorFor(name)); return a; }
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), 3000); }
 function fmtTime(iso) {
   const d = new Date(iso), now = new Date();
@@ -233,6 +235,7 @@ function renderChannels() {
     b.onclick = () => openDm(m.user_id);
     list.append(b);
   }
+  renderMap();
 }
 
 async function createChannel() {
@@ -252,6 +255,7 @@ function renderMembers() {
     if (m.user_id !== state.user.id) { row.title = 'Enviar mensagem direta'; row.onclick = () => openDm(m.user_id); }
     box.append(row);
   }
+  renderMap();
 }
 
 /* ---------- mensagens ---------- */
@@ -263,7 +267,7 @@ async function selectChannel(id) {
   document.body.classList.remove('nav-open');
   $('channel-title').textContent = '# ' + state.channel.name;
   $('text').placeholder = `Enviar mensagem em #${state.channel.name}`;
-  renderChannels(); state.lastMsg = null;
+  renderChannels(); trackLocation(); state.lastMsg = null;
   const box = $('messages'); box.replaceChildren();
   const { data, error } = await sb.from('messages').select('*').eq('channel_id', id).order('created_at', { ascending: false }).limit(100);
   if (error) return toast('Erro ao carregar mensagens.');
@@ -277,7 +281,7 @@ async function selectChannel(id) {
 function stopRealtime() {
   if (state.rt) { sb.removeChannel(state.rt); state.rt = null; }
   for (const ch of state.presence.values()) sb.removeChannel(ch);
-  state.presence.clear(); state.online.clear(); state.unread.clear(); updateTitle();
+  state.presence.clear(); state.online.clear(); state.where.clear(); state.unread.clear(); updateTitle();
 }
 
 function startRealtime() {
@@ -399,13 +403,20 @@ function setupPresence() {
     if (state.presence.has(s.id)) continue;
     const ch = sb.channel('online-' + s.id, { config: { private: true, presence: { key: state.user.id } } });
     ch.on('presence', { event: 'sync' }, () => {
-      const now = new Set(Object.keys(ch.presenceState())), prev = state.online.get(s.id);
+      const ps = ch.presenceState(), now = new Set(Object.keys(ps)), prev = state.online.get(s.id);
       state.online.set(s.id, now);
+      state.where.set(s.id, new Map(Object.entries(ps).map(([k, arr]) => [k, arr[arr.length - 1]?.ch || null])));
       if (prev) for (const k of now) if (!prev.has(k) && k !== state.user.id) announce(k, `entrou no servidor ${s.name}`, '🟢');
       if (state.server) { renderChannels(); renderMembers(); }
-    }).subscribe(async (st) => { if (st === 'SUBSCRIBED') await ch.track({ at: Date.now() }); });
+    }).subscribe(async (st) => { if (st === 'SUBSCRIBED') await ch.track({ at: Date.now(), ch: state.server?.id === s.id && state.view === 'channel' ? state.channel?.id || null : null }); });
     state.presence.set(s.id, ch);
   }
+}
+// avisa os amigos em qual ilha (canal) você está
+function trackLocation() {
+  const s = state.server; const ch = s && state.presence.get(s.id); if (!ch) return;
+  try { ch.track({ at: Date.now(), ch: state.view === 'channel' ? state.channel?.id || null : null }); } catch { /* ainda conectando */ }
+  state.where.get(s.id)?.set(state.user.id, state.view === 'channel' ? state.channel?.id || null : null);
 }
 
 /* ---------- mensagens diretas ---------- */
@@ -426,7 +437,7 @@ async function openDm(peer) {
   document.body.classList.remove('nav-open');
   const name = await nameOf(peer);
   $('channel-title').textContent = '@ ' + name; $('text').placeholder = `Enviar mensagem para ${name}`;
-  markDmRead(peer); renderChannels();
+  markDmRead(peer); renderChannels(); trackLocation();
   const box = $('messages'); box.replaceChildren();
   const me = state.user.id;
   const { data, error } = await sb.from('dm_messages').select('*')
@@ -453,7 +464,7 @@ async function addMessage(m) {
   const cont = last && last.user_id === m.user_id && new Date(m.created_at) - new Date(last.created_at) < 5 * 60e3;
   state.lastMsg = m;
 
-  const row = el('div', 'msg' + (cont ? ' cont' : '')); row.id = 'm-' + m.id;
+  const row = el('div', 'msg' + (cont ? ' cont' : '') + (m.user_id === state.user.id ? ' me' : '')); row.id = 'm-' + m.id;
   const body = el('div', 'body');
   if (!cont) {
     const meta = el('div', 'meta', null);
@@ -560,6 +571,7 @@ function watchVoiceChannels() {
         if (voice.id === c.id && key !== state.user.id && !ch.presenceState()[key]) { voice.peerSid.delete(key); closePeer(key); }
       })
       .on('broadcast', { event: 'signal' }, ({ payload }) => { if (voice.id === c.id) onSignal(payload); })
+      .on('broadcast', { event: 'react' }, ({ payload }) => { if (payload?.from && typeof payload.emoji === 'string') showReaction(payload.from, payload.emoji.slice(0, 8)); })
       .subscribe((st) => {
         if (st === 'SUBSCRIBED') setTimeout(() => { prevKeys = new Set(Object.keys(ch.presenceState())); ready = true; }, 1500);
       });
@@ -588,7 +600,7 @@ async function joinVoice(c) {
   setShareUI();
   await updatePresence();
   for (const u of voiceUsers(c.id)) onPeerJoin(u.uid, u.sid);
-  renderChannels(); updateVoiceStatus();
+  renderChannels(); updateVoiceStatus(); updateDock();
 }
 
 async function leaveVoice() {
@@ -607,6 +619,7 @@ async function leaveVoice() {
   try { await ch?.untrack(); } catch { /* já desconectado */ }
   if (state.server && !state.channels.some((x) => x.id === cid)) { const o = voice.obs.get(cid); if (o) { sb.removeChannel(o.ch); voice.obs.delete(cid); } }
   if (state.server) renderChannels();
+  updateDock();
 }
 
 function setMuteUI() {
@@ -614,6 +627,7 @@ function setMuteUI() {
   $('pill-mute').textContent = voice.muted ? '🔇' : '🎤';
   b.textContent = voice.muted ? '🔇' : '🎤'; b.title = voice.muted ? 'Ativar microfone' : 'Silenciar microfone';
   b.setAttribute('aria-label', b.title);
+  updateDock();
 }
 $('mute-btn').onclick = async () => {
   if (!voice.stream) return;
@@ -843,6 +857,7 @@ function renderScreens() {
 function setShareUI() {
   const b = $('share-btn'); const on = !!voice.screen;
   b.setAttribute('aria-pressed', String(on)); b.title = on ? 'Parar de compartilhar' : 'Compartilhar tela'; b.setAttribute('aria-label', b.title);
+  updateDock();
 }
 
 async function startShare() {

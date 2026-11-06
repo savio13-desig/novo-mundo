@@ -3,8 +3,8 @@
   "short_name": "Novo Mundo",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0e1a22",
-  "theme_color": "#0e1a22",
+  "background_color": "#0c0a2e",
+  "theme_color": "#0c0a2e",
   "lang": "pt-BR",
   "icons": [
     { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
