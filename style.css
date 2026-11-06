@@ -125,6 +125,13 @@ button,input{font:inherit;color:inherit}
 .conf{stroke:var(--ink);stroke-width:2;animation:burst 1s ease-out forwards}
 @keyframes burst{to{transform:translate(var(--dx),var(--dy));opacity:0}}
 
+/* ---------- escritório pixel art ---------- */
+#office{display:none;position:absolute;left:50%;top:64px;transform:translateX(-50%);image-rendering:pixelated;cursor:pointer;touch-action:none}
+.office #office{display:block}
+.office #map,.office .map-more{display:none}
+.view-btn{background:#fff;margin-left:auto;font-size:1.15rem}
+.office .view-btn{background:var(--sun)}
+
 /* ---------- barra de voz ---------- */
 .dock{position:absolute;z-index:3;left:16px;bottom:16px;display:flex;gap:10px;padding:8px 10px;border-radius:999px;background:var(--cream);border:3px solid var(--ink);box-shadow:4px 4px 0 var(--ink)}
 .dk{width:48px;height:48px;border-radius:50%;border:3px solid var(--ink);background:#fff;font-size:1.25rem;cursor:pointer;box-shadow:2px 2px 0 var(--ink);transition:transform .12s,box-shadow .12s}

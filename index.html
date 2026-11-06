@@ -49,6 +49,7 @@
       <strong class="brand">Novo Mundo</strong>
       <span class="top-srv" id="top-server"></span>
       <span class="sp"></span>
+      <button class="top-btn view-btn" id="view-btn" title="Alternar entre mapa e escritório" aria-label="Alternar entre mapa e escritório">🏢</button>
       <div class="stack" id="stack" aria-label="Online agora"></div>
     </header>
 
@@ -62,6 +63,7 @@
       <g id="isles"></g>
       <g id="pins"></g>
     </svg>
+    <canvas id="office" aria-label="Escritório em pixel art: use as setas ou toque para andar"></canvas>
     <p class="map-empty" id="map-empty" hidden>Crie um servidor (+) ou entre em um com convite (→) pelo menu.</p>
     <p class="map-more" id="map-more" hidden></p>
 
@@ -144,5 +146,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
 <script src="map.js"></script>
+<script src="office.js"></script>
 </body>
 </html>
