@@ -402,6 +402,7 @@ function setupPresence() {
   for (const s of state.servers) {
     if (state.presence.has(s.id)) continue;
     const ch = sb.channel('online-' + s.id, { config: { private: true, presence: { key: state.user.id } } });
+    ch.on('broadcast', { event: 'pos' }, ({ payload }) => { if (typeof OFFICE !== 'undefined' && OFFICE) OFFICE.onPos(s.id, payload); });
     ch.on('presence', { event: 'sync' }, () => {
       const ps = ch.presenceState(), now = new Set(Object.keys(ps)), prev = state.online.get(s.id);
       state.online.set(s.id, now);

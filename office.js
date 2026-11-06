@@ -202,10 +202,41 @@ const OFFICE = (() => {
     ctx.restore();
   }
 
+  /* ---------- tempo real: posições dos amigos (broadcast no canal online-<servidor>) ---------- */
+  let curServer = null, lastSent = 0, sentX = -1, sentY = -1;
+  function onPos(sid, p) {
+    if (!p || sid !== state.server?.id || p.u === state.user?.id || typeof p.x !== 'number' || typeof p.y !== 'number') return;
+    const known = state.profiles.get(p.u)?.username;
+    const a = actorFor(p.u, known || 'Amigo');
+    if (!known) nameOf(p.u).then((n) => { a.name = n; a.look = lookFor(n); });
+    if (a.seen === undefined) { a.x = p.x; a.y = p.y; }
+    a.tx = Math.max(0, Math.min(WW, p.x)); a.ty = Math.max(0, Math.min(WH, p.y)); a.dir = p.d & 3; a.seen = performance.now();
+  }
+  function syncRemote(dt, now) {
+    for (const [uid, a] of actors) {
+      if (uid === state.user.id) continue;
+      const online = state.online.get(state.server?.id)?.has(uid);
+      if (now - (a.seen || 0) > 12000 || online === false) { actors.delete(uid); continue; }
+      const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+      if (d > 0.6) { const sp = Math.min(d, (d > 48 ? 260 : 90) * dt); a.x += dx / d * sp; a.y += dy / d * sp; a.moving = true; } else a.moving = false;
+      a.t += dt; if (a.t > 0.16) { a.t = 0; a.frame++; }
+    }
+  }
+  function broadcastPos(now) {
+    const me = actors.get(state.user.id), ch = state.presence.get(state.server?.id); if (!me || !ch) return;
+    const changed = Math.abs(me.x - sentX) > 0.5 || Math.abs(me.y - sentY) > 0.5;
+    if (now - lastSent < (changed ? 120 : 2500)) return;
+    lastSent = now; sentX = me.x; sentY = me.y;
+    try { ch.send({ type: 'broadcast', event: 'pos', payload: { u: state.user.id, x: Math.round(me.x), y: Math.round(me.y), d: me.dir } }); } catch { /* canal ainda conectando */ }
+  }
+
   function loop(ts) {
     if (!active) return;
     const dt = Math.min(0.05, (ts - (last || ts)) / 1000); last = ts;
-    if (state.user) { actorFor(state.user.id, state.profile?.username || 'Você'); step(dt); }
+    if (state.user) {
+      if (curServer !== state.server?.id) { if (curServer) for (const uid of [...actors.keys()]) if (uid !== state.user.id) actors.delete(uid); curServer = state.server?.id; sentX = -1; }
+      actorFor(state.user.id, state.profile?.username || 'Você'); step(dt); syncRemote(dt, ts); broadcastPos(ts);
+    }
     render(); raf = requestAnimationFrame(loop);
   }
 
@@ -221,7 +252,7 @@ const OFFICE = (() => {
     if (on) { resize(); last = 0; raf = requestAnimationFrame(loop); }
   }
   document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { cancelAnimationFrame(raf); last = 0; raf = requestAnimationFrame(loop); } });
-  return { setActive, get active() { return active; }, actors, actorFor, ROOMS, canStand, T };
+  return { setActive, get active() { return active; }, actors, actorFor, ROOMS, canStand, T, onPos };
 })();
 
 if (OFFICE) {
