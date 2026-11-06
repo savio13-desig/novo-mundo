@@ -44,7 +44,8 @@ const OFFICE = (() => {
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (grid[y][x] < 2) blocked[y][x] = 1;
   const furn = [];
   for (const r of ROOMS) for (const [t, x, y, w, h] of FURN[r.id]) {
-    const f = { t, x: r.ox + x, y: r.oy + y, w, h, room: r }; furn.push(f);
+    const ry = r.door === 'up' ? r.h - 1 - y - (h - 1) : y; /* salas de baixo: espelha, para a parede do fundo ficar longe da porta */
+    const f = { t, x: r.ox + x, y: r.oy + ry, w, h, room: r }; furn.push(f);
     if (t !== 'rug') for (let yy = f.y; yy < f.y + h; yy++) for (let xx = f.x; xx < f.x + w; xx++) blocked[yy][xx] = 1;
   }
   const solidAt = (px, py) => { const x = Math.floor(px / T), y = Math.floor(py / T); return x < 0 || y < 0 || x >= COLS || y >= ROWS || !!blocked[y][x]; };
@@ -147,7 +148,7 @@ const OFFICE = (() => {
   }
 
   /* ---------- entrada ---------- */
-  const keys = new Set(); let target = null;
+  const keys = new Set(); let target = null, route = [], routeStuck = 0;
   const KEYMAP = { ArrowUp: 'u', ArrowDown: 'd', ArrowLeft: 'l', ArrowRight: 'r', w: 'u', s: 'd', a: 'l', d: 'r', W: 'u', S: 'd', A: 'l', D: 'r' };
   const typing = () => { const t = document.activeElement; return t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName); };
   window.addEventListener('keydown', (e) => {
@@ -171,16 +172,23 @@ const OFFICE = (() => {
   function step(dt) {
     const me = actors.get(state.user?.id); if (!me) return;
     let dx = (keys.has('r') ? 1 : 0) - (keys.has('l') ? 1 : 0), dy = (keys.has('d') ? 1 : 0) - (keys.has('u') ? 1 : 0);
-    if (!dx && !dy && target) {
+    if (dx || dy) route = [];
+    let walking = false;
+    if (!dx && !dy && route.length) { /* caminho até uma sala */
+      const w = route[0], tx = w[0] - me.x, ty = w[1] - me.y, d = Math.hypot(tx, ty);
+      if (d < 2) { me.x = w[0]; me.y = w[1]; route.shift(); } else { dx = tx / d; dy = ty / d; walking = true; }
+    } else if (!dx && !dy && target) {
       const tx = target.x - me.x, ty = target.y - me.y, d = Math.hypot(tx, ty);
       if (d < 3 || target.stuck > 12) target = null; else { dx = tx / d; dy = ty / d; }
     }
     const moving = !!(dx || dy);
     if (moving) {
-      const n = Math.hypot(dx, dy) || 1, sp = 64 * dt; dx = dx / n * sp; dy = dy / n * sp;
+      const n = Math.hypot(dx, dy) || 1, sp = (walking ? 104 : 64) * dt; dx = dx / n * sp; dy = dy / n * sp;
       const ox = me.x, oy = me.y;
       if (canStand(me.x + dx, me.y)) me.x += dx; if (canStand(me.x, me.y + dy)) me.y += dy;
-      if (target) target.stuck = (me.x === ox && me.y === oy) ? (target.stuck || 0) + 1 : 0;
+      const stuck = me.x === ox && me.y === oy;
+      if (target) target.stuck = stuck ? (target.stuck || 0) + 1 : 0;
+      if (walking) { routeStuck = stuck ? routeStuck + 1 : 0; if (routeStuck > 15) { route = []; routeStuck = 0; } }
       me.dir = Math.abs(dx) > Math.abs(dy) ? (dx < 0 ? 1 : 2) : (dy < 0 ? 3 : 0);
     }
     me.moving = moving && (me.x !== undefined); me.t += dt; if (me.t > 0.16) { me.t = 0; me.frame++; }
@@ -200,7 +208,7 @@ const OFFICE = (() => {
     for (const a of list) drawChar(ctx, a.x, a.y, a);
     for (const a of list) drawName(ctx, a.x, a.y, a.name);
     for (const a of list) if (inVoice(a.uid)) drawVoiceMark(ctx, a);
-    for (const a of list) drawBubble(ctx, a);
+    for (const a of list) { drawBubble(ctx, a); drawEmoji(ctx, a); }
     drawBadges(ctx);
     ctx.restore();
   }
@@ -223,11 +231,30 @@ const OFFICE = (() => {
     if (ch.type === 'text') { if (!(state.view === 'channel' && state.channel?.id === ch.id)) selectChannel(ch.id); }
     else if (!voice.id) toast('Sala de reunião: toque em "Entrar na voz" para falar com a galera.');
   }
-  /* quem escolhe um canal pelo menu vai (teleporta) para a sala dele */
+  /* caminho mais curto entre tiles livres (busca em largura) */
+  function findPath(sx, sy, isGoal) {
+    const prev = new Map(), key = (x, y) => y * COLS + x, q = [[sx, sy]]; prev.set(key(sx, sy), null);
+    let gx = -1, gy = -1;
+    while (q.length) {
+      const [x, y] = q.shift(); if (isGoal(x, y)) { gx = x; gy = y; break; }
+      for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + ax, ny = y + ay;
+        if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS || blocked[ny][nx] || prev.has(key(nx, ny))) continue;
+        prev.set(key(nx, ny), [x, y]); q.push([nx, ny]);
+      }
+    }
+    if (gx < 0) return [];
+    const out = []; for (let p = [gx, gy]; p; p = prev.get(key(p[0], p[1]))) out.unshift([p[0] * T + T / 2, p[1] * T + 12]);
+    return out.slice(1);
+  }
+  /* quem escolhe um canal pelo menu: o personagem anda até a sala dele */
   function enterChannel(id) {
     const me = actors.get(state.user?.id); if (!active || !me) return;
     const room = ROOMS.find((r) => channelFor(r)?.id === id); if (!room || roomOf(me.x, me.y) === room) return;
-    me.x = (room.ox + 5) * T; me.y = (room.oy + (room.door === 'down' ? room.h - 1 : 0.5)) * T + (room.door === 'down' ? 6 : 12); myRoom = room; target = null; sentX = -1;
+    const doorY = room.door === 'down' ? room.oy + room.h - 1 : room.oy;
+    const sx = Math.floor(me.x / T), sy = Math.floor((me.y - 2) / T);
+    route = findPath(sx, sy, (x, y) => roomAt[y][x] === room && Math.abs(y - doorY) >= 2 && Math.abs(x - (room.ox + 4.5)) <= 3); routeStuck = 0; target = null;
+    if (!route.length) { me.x = (room.ox + 4.5) * T; me.y = doorY * T + 12; sentX = -1; } /* sem caminho: aparece na sala */
   }
   function inVoice(uid) { return !!(typeof voiceUsers === 'function' && state.channels.some((c) => c.type === 'voice' && voiceUsers(c.id).some((u) => u.uid === uid))); }
   const isSpeaking = (uid) => !!document.querySelector(`[data-vuid="${uid}"].speaking`);
@@ -235,6 +262,12 @@ const OFFICE = (() => {
   function say(uid, text) {
     const a = actors.get(uid); if (!a || !text) return;
     const t = String(text).replace(/\s+/g, ' '); a.say = { text: t.length > 34 ? t.slice(0, 33) + '…' : t, until: performance.now() + 4500 };
+  }
+  function react(uid, e) { const a = actors.get(uid); if (a) a.emo = { e, start: performance.now() }; }
+  function drawEmoji(c, a) {
+    if (!a.emo) return; const t = (performance.now() - a.emo.start) / 1900; if (t > 1) { a.emo = null; return; }
+    c.save(); c.globalAlpha = 1 - t * t; c.font = '14px sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText(a.emo.e, Math.round(a.x + Math.sin(t * 9) * 3), Math.round(a.y - 46 - t * 30)); c.restore();
   }
   function drawBubble(c, a) {
     if (!a.say || performance.now() > a.say.until) return;
@@ -273,7 +306,7 @@ const OFFICE = (() => {
       const online = state.online.get(state.server?.id)?.has(uid);
       if (now - (a.seen || 0) > 12000 || online === false) { actors.delete(uid); continue; }
       const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
-      if (d > 0.6) { const sp = Math.min(d, (d > 48 ? 260 : 90) * dt); a.x += dx / d * sp; a.y += dy / d * sp; a.moving = true; } else a.moving = false;
+      if (d > 0.6) { const sp = Math.min(d, (d > 48 ? 260 : 130) * dt); a.x += dx / d * sp; a.y += dy / d * sp; a.moving = true; } else a.moving = false;
       a.t += dt; if (a.t > 0.16) { a.t = 0; a.frame++; }
     }
   }
@@ -307,11 +340,7 @@ const OFFICE = (() => {
     if (on) { resize(); last = 0; raf = requestAnimationFrame(loop); }
   }
   document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { cancelAnimationFrame(raf); last = 0; raf = requestAnimationFrame(loop); } });
-  return { setActive, get active() { return active; }, actors, actorFor, ROOMS, canStand, T, onPos, enterChannel, channelFor, say };
+  return { setActive, get active() { return active; }, actors, actorFor, ROOMS, canStand, T, onPos, enterChannel, channelFor, say, react };
 })();
 
-if (OFFICE) {
-  const btn = document.getElementById('view-btn');
-  btn.onclick = () => OFFICE.setActive(!OFFICE.active);
-  try { if (localStorage.getItem('nm_view') === 'office') OFFICE.setActive(true); } catch { /* sem storage */ }
-}
+if (OFFICE) OFFICE.setActive(true); /* o escritório é a única tela do mundo; o mapa de ilhas foi aposentado */

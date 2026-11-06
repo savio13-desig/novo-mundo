@@ -128,7 +128,8 @@ button,input{font:inherit;color:inherit}
 /* ---------- escritório pixel art ---------- */
 #office{display:none;position:absolute;left:50%;top:64px;transform:translateX(-50%);image-rendering:pixelated;cursor:pointer;touch-action:none}
 .office #office{display:block}
-.office #map,.office .map-more{display:none}
+#map,.map-more,.map-empty{display:none}
+.office .map-empty{display:grid}
 .view-btn{background:#fff;margin-left:auto;font-size:1.15rem}
 .office .view-btn{background:var(--sun)}
 

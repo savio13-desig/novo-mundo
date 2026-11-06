@@ -321,6 +321,7 @@ document.addEventListener('click', (e) => { if (!e.target.closest('#react-pop, #
 
 /* reação: um emoji sobe do avatar de quem mandou */
 function showReaction(uid, emoji) {
+  if (typeof OFFICE !== 'undefined' && OFFICE) { OFFICE.react(uid, emoji); return; }
   const p = mapState.pins.get(uid); if (!p) return;
   const m = /translate\((-?[\d.]+)px,\s*(-?[\d.]+)px\)/.exec(p.g.style.transform); if (!m) return;
   const t = svgEl('text', { x: +m[1] + (Math.random() < 0.5 ? -18 : 18), y: +m[2] - 44, class: 'emo' }, $m('pins'));
