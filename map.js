@@ -69,22 +69,60 @@ const ISLAND_ART = {
       <path d="M0 27 L5 5 L0 0 L-5 5ZM-27 0 L-5 -5 L0 0 L-5 5ZM27 0 L5 -5 L0 0 L5 5Z" fill="#1a1030"/></g></g>`,
 };
 
+/* setores do escritório: mesma ilha-base, prédio diferente */
+const wrapIsle = (inner) => `<g transform="scale(1.3) translate(-100 -110)"><g stroke="#1a1030" stroke-width="4" stroke-linejoin="round">
+  <path d="M30 112Q40 148 80 170Q100 182 120 168Q160 148 170 112Z" fill="#8b5a3c"/>
+  <ellipse class="top-s" cx="100" cy="110" rx="70" ry="20" fill="#58c26b"/>${inner}</g></g>`;
+ISLAND_ART.recepcao = wrapIsle(`<rect x="56" y="68" width="88" height="42" fill="#fff3d1"/><path d="M48 70L100 38L152 70Z" fill="#ef4b3c"/>
+  <rect x="86" y="84" width="28" height="26" fill="#8b5a3c"/><circle cx="100" cy="30" r="9" fill="#ffcf3a"/><path d="M100 39V46" fill="none"/>
+  <rect x="62" y="80" width="16" height="14" fill="#9fd8ff"/><rect x="122" y="80" width="16" height="14" fill="#9fd8ff"/>`);
+ISLAND_ART.vendas = wrapIsle(`<rect x="54" y="68" width="92" height="42" fill="#ffe9b0"/>
+  <path d="M44 68L52 46H148L156 68Z" fill="#ef4b3c"/><path d="M72 46L68 68M100 46V68M128 46L132 68" fill="none" stroke="#fff3d1"/>
+  <rect x="88" y="84" width="24" height="26" fill="#8b5a3c"/><circle cx="68" cy="92" r="9" fill="#ffcf3a"/><circle cx="134" cy="92" r="9" fill="#ffcf3a"/>
+  <path d="M132 36L144 24L154 30" fill="none" stroke="#2f9e55" stroke-width="5"/>`);
+ISLAND_ART.suporte = wrapIsle(`<rect x="58" y="70" width="84" height="40" fill="#9fd8ff"/><rect x="86" y="86" width="28" height="24" fill="#8b5a3c"/>
+  <path d="M70 62Q100 14 130 62" fill="none" stroke-width="7"/><path d="M70 62Q100 14 130 62" fill="none" stroke="#fff3d1" stroke-width="3"/>
+  <rect x="62" y="54" width="14" height="22" rx="5" fill="#ef4b3c"/><rect x="124" y="54" width="14" height="22" rx="5" fill="#ef4b3c"/>`);
+ISLAND_ART.financeiro = wrapIsle(`<rect x="54" y="54" width="92" height="56" rx="6" fill="#8aa0b8"/><circle cx="100" cy="82" r="20" fill="#cfd3e8"/>
+  <circle cx="100" cy="82" r="6" fill="#ffcf3a"/><path d="M100 82L112 70" fill="none" stroke-width="3"/>
+  <ellipse cx="44" cy="106" rx="12" ry="5" fill="#ffcf3a"/><ellipse cx="44" cy="99" rx="12" ry="5" fill="#ffcf3a"/><ellipse cx="156" cy="106" rx="12" ry="5" fill="#ffcf3a"/>`);
+
+/* o tipo da ilha vem do nome do canal; o que não casa usa moinho/taverna */
+const KIND_BY_NAME = [[/geral|general/i, 'navio'], [/foto/i, 'polaroid'], [/recep|aviso|bem.?vind/i, 'recepcao'], [/venda|comercial/i, 'vendas'],
+  [/suporte|atendimento|ajuda/i, 'suporte'], [/financ|caixa/i, 'financeiro']];
+
 /* onde cada tipo de ilha põe o letreiro, o aviso de não lidas e os lugares dos avatares (relativo ao centro) */
 const ISLAND_SPOTS = {
   navio:    { banner: [0, 4],   bud: [112, -72], spots: [[-74, 78], [74, 78], [0, 104], [64, -56]] },
   polaroid: { banner: [0, 84],  bud: [100, -100], spots: [[-42, 0], [38, 14], [2, -54], [74, -42]] },
   moinho:   { banner: [0, 34],  bud: [95, -60], spots: [[-78, 20], [78, 20], [0, 62], [-40, -30]] },
   taverna:  { banner: [0, 34],  bud: [95, -60], spots: [[-78, 20], [78, 20], [0, 62], [-40, -30]] },
+  recepcao:   { banner: [0, 84], bud: [95, -60], spots: [[-96, 8], [96, 8], [-64, -52], [64, -52]] },
+  vendas:     { banner: [0, 84], bud: [95, -60], spots: [[-96, 8], [96, 8], [-64, -52], [64, -52]] },
+  suporte:    { banner: [0, 84], bud: [95, -60], spots: [[-96, 8], [96, 8], [-64, -52], [64, -52]] },
+  financeiro: { banner: [0, 84], bud: [95, -60], spots: [[-96, 8], [96, 8], [-64, -52], [64, -52]] },
   voz:      { banner: [0, 176], bud: [0, 0],    spots: [[0, -64], [-96, 20], [96, 20], [0, 84]] },
 };
 const TEXT_SLOTS = [
-  { x: 172, y: 138, kind: 'navio', s: 1 },
-  { x: 758, y: 112, kind: 'polaroid', s: 1 },
-  { x: 170, y: 470, kind: 'moinho', s: 1 },
-  { x: 800, y: 345, kind: 'taverna', s: 0.8 },
+  { id: 'T0', x: 172, y: 138, s: 1 },
+  { id: 'T1', x: 758, y: 112, s: 1 },
+  { id: 'T2', x: 170, y: 470, s: 1 },
+  { id: 'T3', x: 800, y: 345, s: 0.8 },
+  { id: 'T4', x: 470, y: 70, s: 0.8 },
 ];
-const VOICE_SLOT = { x: 432, y: 436, kind: 'voz', s: 1 };
-const COSTA = { x: 470, y: 150, s: 1, spots: [[-60, 10], [0, 34], [60, 10], [0, -34]] };
+const VOICE_SLOTS = [
+  { id: 'V0', x: 432, y: 436, kind: 'voz', s: 1 },
+  { id: 'V1', x: 660, y: 540, kind: 'voz', s: 0.75 },
+];
+const COSTA = { x: 610, y: 270, s: 1, spots: [[-60, 10], [0, 34], [60, 10], [0, -34]] };
+const TRAIL_EDGES = [['T0', 'T4'], ['T4', 'T1'], ['T0', 'V0'], ['T1', 'V0'], ['T2', 'V0'], ['T3', 'V0'], ['T3', 'T1'], ['V0', 'V1'], ['V1', 'T3'], ['T2', 'T0']];
+function kindsFor(texts) {
+  const spare = ['moinho', 'taverna'], used = new Set();
+  return texts.map((c) => {
+    const hit = KIND_BY_NAME.find(([re, k]) => re.test(c.name) && !used.has(k));
+    const k = hit ? hit[1] : (spare.find((x) => !used.has(x)) || 'moinho'); used.add(k); return k;
+  });
+}
 
 const mapState = { isles: new Map(), pins: new Map(), trailsKey: '', reactTimer: null };
 const $m = (id) => document.getElementById(id);
@@ -119,7 +157,7 @@ function onIslandClick(id) {
 }
 
 function setLabel(isle, ch) {
-  const text = (ch.type === 'text' ? '# ' : '') + (ch.type === 'voice' && /^sala$/i.test(ch.name) ? 'Sala de voz' : ch.name);
+  const text = (ch.type === 'text' ? '# ' : '') + (ch.type === 'voice' && /^sala$/i.test(ch.name) ? 'Sala de reunião' : ch.name);
   const t = text.length > 16 ? text.slice(0, 15) + '…' : text, w = bannerSize(t);
   isle.label.textContent = t; isle.rect.setAttribute('x', -w / 2); isle.rect.setAttribute('width', w);
 }
@@ -166,8 +204,9 @@ function renderMap() {
   /* ilhas */
   const texts = state.channels.filter((c) => c.type === 'text'), voices = state.channels.filter((c) => c.type === 'voice');
   const wanted = new Map();
-  texts.slice(0, TEXT_SLOTS.length).forEach((c, i) => wanted.set(c.id, { ch: c, slot: TEXT_SLOTS[i], cls: ['', 'f2', 'f3', 'f2'][i] }));
-  if (voices[0]) wanted.set(voices[0].id, { ch: voices[0], slot: VOICE_SLOT, cls: 'f3' });
+  const shown = texts.slice(0, TEXT_SLOTS.length), kinds = kindsFor(shown);
+  shown.forEach((c, i) => wanted.set(c.id, { ch: c, slot: { ...TEXT_SLOTS[i], kind: kinds[i] }, cls: ['', 'f2', 'f3', 'f2', 'f3'][i] }));
+  voices.slice(0, VOICE_SLOTS.length).forEach((c, i) => wanted.set(c.id, { ch: c, slot: VOICE_SLOTS[i], cls: ['f3', 'f2'][i] }));
   for (const [id, isle] of mapState.isles) if (!wanted.has(id)) { isle.g.remove(); mapState.isles.delete(id); }
   for (const [id, w] of wanted) {
     let isle = mapState.isles.get(id);
@@ -217,9 +256,8 @@ function renderMap() {
 function drawTrails(slots) {
   const key = slots.map((s) => s.x + ',' + s.y).join('|'); if (key === mapState.trailsKey) return; mapState.trailsKey = key;
   const g = $m('trails'); g.replaceChildren();
-  const by = (k) => slots.find((s) => s.kind === k);
-  const pairs = [['navio', 'polaroid'], ['navio', 'voz'], ['voz', 'polaroid'], ['moinho', 'voz'], ['moinho', 'navio'], ['taverna', 'polaroid'], ['taverna', 'voz']];
-  for (const [a, b] of pairs) {
+  const by = (id) => slots.find((s) => s.id === id);
+  for (const [a, b] of TRAIL_EDGES) {
     const A = by(a), B = by(b); if (!A || !B) continue;
     const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2 - 50;
     svgEl('path', { class: 'trail', d: `M${A.x} ${A.y} Q${mx} ${my} ${B.x} ${B.y}` }, g);
